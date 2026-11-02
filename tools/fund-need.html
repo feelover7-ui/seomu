@@ -501,7 +501,9 @@ function build(C, D, rs, re, dErr) {
   dedupD(D).forEach(function (x) {
     var done = x.maxDlvrTmlmtDate || '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(done) || !(done >= rs && done <= re) || !(+x.dlvrReqAmt > 0)) return;
-    A.push({ kind: '관급자재', raw: x.dlvrReqNm || '', amt: Math.round(+x.dlvrReqAmt / 1000), date: done, sub: '납품요구 ' + (x.dlvrReqRcptDate || '') + ' · ' + (x.corpNm || '') });
+    var o = { kind: '관급자재', raw: x.dlvrReqNm || '', amt: Math.round(+x.dlvrReqAmt / 1000), date: done, sub: '납품요구 ' + (x.dlvrReqRcptDate || '') + ' · ' + (x.rprsntPrdctClsfcNoNm ? x.rprsntPrdctClsfcNoNm + ' · ' : '') + (x.corpNm || '') };
+    // 사무용 의자 같은 물품 구입은 시설이 아님: 이름에 공사·관급자재·시설·설치·개선 등이 있는 것만
+    (/공사|관급|시설|설치|개선|보수|교체|리모델링|조성|정비/.test(o.raw) ? A : B).push(o);
   });
   var ord = { '공사': 0, '용역': 1, '관급자재': 2 };
   A.sort(function (a, b) { return ord[a.kind] - ord[b.kind] || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0); });
