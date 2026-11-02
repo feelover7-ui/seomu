@@ -443,7 +443,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.12.0 · 2026.11.02 15:29 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.12.1 · 2026.11.02 15:40 수정</a></div>
 </aside>
 
 <div class="main">
@@ -502,6 +502,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.12.1</b><span>2026.11.02 15:40</span></div>
+          <ul>
+            <li>초과근무 미입력 찾기: <b>나이스 기준 달력</b> 추가 — 초과근무확인목록에서 휴일로 신청한 사람이 2명 이상인 날(또는 그날 신청자 모두가 휴일 신청)과 토·일을 휴일로 보고 달력으로 보여 줌 (예: 10.5. 개천절 대체공휴일, 10.9. 한글날). 그날 평일로 신청된 건도 휴일처럼 그날 지문 전체로 찾아 「·휴(달력)」으로 표시. 한 사람만 휴일 신청한 평일은 노랗게 보여 주고, 날짜를 누르면 휴일↔평일을 바꿀 수 있음</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.12.0</b><span>2026.11.02 15:29</span></div>
           <ul>
@@ -1374,8 +1380,8 @@
   });
 
   (function () {
-    var VERSION = '1.12.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.02 15:29';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.12.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.02 15:40';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
