@@ -444,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.1 · 2026.11.03 08:30 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.2 · 2026.11.03 08:32 수정</a></div>
 </aside>
 
 <div class="main">
@@ -503,6 +503,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.2</b><span>2026.11.03 08:32</span></div>
+          <ul>
+            <li>자금소요액 산출: 줄마다 <b>「기금」 표시</b> 추가 — 체크하면 이름 앞에 「(기금)」이 붙고 이 PC가 기억해 다음 달에도 자동으로 표시(지난달 표의 (기금)도 이어받음). 기금 건수·금액을 위에 모아 보여 주고 「교특회계분만 남기세요」 안내</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.13.1</b><span>2026.11.03 08:30</span></div>
           <ul>
@@ -1423,8 +1429,8 @@
   });
 
   (function () {
-    var VERSION = '1.13.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.03 08:30';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.2';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.03 08:32';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1493,7 +1499,7 @@
       'fund-need': {
         need: '지난달 자금소요액 엑셀, 공공데이터포털 인증키(계약정보서비스·나라장터쇼핑몰 품목정보 서비스 두 가지 활용신청)와 기관코드. 인터넷이 필요합니다.',
         steps: ['지난달 자금소요액 엑셀 넣기 (가장 나중 달 시트를 본보기로 씀)', '산출 월·대상기간·준공예정일 범위(대상기간 시작·끝의 20일 전) 확인 후 「나라장터에서 찾기」', '넣을 줄 체크·금액 확인 (지난달 표에 있던 건, 기금 표시 확인)', '「새 시트를 붙여 내려받기」'],
-        check: '기금회계는 나라장터로 구분되지 않아 지난달 표에서 (기금)이었던 계약만 표시합니다. 학교회계전출금 표는 직접 채웁니다. 조달청 서버가 느려 처음 조회는 몇 분 걸릴 수 있습니다.'
+        check: '기금회계는 나라장터로 구분되지 않아 줄마다 「기금」 칸으로 표시합니다(이 PC가 기억해 다음 달에도 표시, 지난달 (기금)도 이어받음). 학교회계전출금 표는 직접 채웁니다. 조달청 서버가 느려 처음 조회는 몇 분 걸릴 수 있습니다.'
       },
       'contract-ledger': {
         need: '공공데이터포털 인증키(일반 인증키 Decoding)와 기관코드(도구 안에서 이름으로 검색). 인터넷이 필요합니다.',

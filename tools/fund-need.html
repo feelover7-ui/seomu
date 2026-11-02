@@ -280,6 +280,11 @@ var DLVR = 'at/ShoppingMallPrdctInfoService/getDlvrReqInfoList';
 var FAC = { '시설공사': 1, '기술용역': 1, '폐기물 처리 및 재활용서비스': 1 };   // 시설 계약으로 보는 분류
 var STORE = 'gongsa_cfg';                                                      // 공사대장과 같이 씀
 var PREV = null, LIST = null, STOP = false;
+// 기금회계로 표시한 사업 (나라장터로는 구분이 안 돼 사람이 표시) → 이 PC에 기억해 다음 달에도 표시
+var FUNDKEY = 'fund_need_fund';
+function fundSet() { try { return JSON.parse(localStorage.getItem(FUNDKEY) || '{}') || {}; } catch (e) { return {}; } }
+function fundSave(k, on) { try { var f = fundSet(); if (on) f[k] = 1; else delete f[k]; localStorage.setItem(FUNDKEY, JSON.stringify(f)); } catch (e) {} }
+function withFund(name, on) { name = String(name || '').replace(/^\s*\(기금\)\s*/, ''); return on ? '(기금)' + name : name; }
 
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -510,25 +515,34 @@ function build(C, D, rs, re, dErr) {
   B.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
   // 지난달 표와 견주기: 같은 이름(또는 같은 금액) → 「지난달 표에 있음」, 지난달 (기금) → 이번에도 (기금)
   var prevBy = {}; PREV.items.forEach(function (p) { prevBy[norm(p.name)] = p; });
-  var used = {};
+  var used = {}, FS = fundSet();
   A.concat(B).forEach(function (o) {
-    o.name = clean(o.raw); o.on = A.indexOf(o) >= 0;
+    o.name = clean(o.raw); o.on = A.indexOf(o) >= 0; o.fkey = norm(o.raw);
     var p = prevBy[norm(o.raw)] || PREV.items.filter(function (q) { return q.amt === o.amt && o.amt > 0; })[0];
-    if (p) { o.prev = p; used[p.row] = true; if (p.fund) { o.name = '(기금)' + o.name; o.fund = true; } }
+    if (p) { o.prev = p; used[p.row] = true; if (p.fund) o.fundWhy = '지난달 기금'; }
+    if (FS[o.fkey]) o.fundWhy = o.fundWhy || '전에 기금으로 표시';
+    if (o.fundWhy) { o.fund = true; o.name = withFund(o.name, true); }
   });
   var Cc = PREV.items.filter(function (p) { return !used[p.row]; }).map(function (p) {
-    return { kind: '지난달', raw: p.name, name: p.name, amt: p.amt || 0, date: '', dateText: p.date, sub: '지난달 표 ' + p.date, on: false, carry: true };
+    return { kind: '지난달', raw: p.name, name: p.name, amt: p.amt || 0, date: '', dateText: p.date, sub: '지난달 표 ' + p.date, on: false, carry: true,
+             fkey: norm(p.name), fund: p.fund, fundWhy: p.fund ? '지난달 기금' : '' };
   });
   LIST = { A: A, B: B, C: Cc, rs: rs, re: re, dErr: dErr };
   render();
 }
 function rowHtml(o, i, g) {
-  var flag = (o.fund ? '<span class="tg fund">지난달 기금</span>' : '') + (o.prev ? '<span class="tg prev">지난달 표에 있음' + (o.prev.amt !== o.amt ? ' (' + (o.prev.amt == null ? '' : o.prev.amt.toLocaleString()) + '→' + o.amt.toLocaleString() + ')' : '') + '</span>' : '');
+  var flag = (o.fund ? '<span class="tg fund">기금회계' + (o.fundWhy ? ' · ' + esc(o.fundWhy) : '') + ' — 교특회계분만 남기세요</span>' : '') + (o.prev ? '<span class="tg prev">지난달 표에 있음' + (o.prev.amt !== o.amt ? ' (' + (o.prev.amt == null ? '' : o.prev.amt.toLocaleString()) + '→' + o.amt.toLocaleString() + ')' : '') + '</span>' : '');
   return '<tr class="' + (o.on ? '' : 'off') + '"><td><input type="checkbox" data-g="' + g + '" data-i="' + i + '"' + (o.on ? ' checked' : '') + '></td>' +
     '<td><span class="k k-' + esc(o.kind) + '">' + esc(o.kind) + '</span></td>' +
     '<td class="nm"><input type="text" class="nmi" data-g="' + g + '" data-i="' + i + '" value="' + esc(o.name) + '"><div class="sub">' + esc(o.sub) + (o.raw !== o.name && !o.carry ? ' · 나라장터: ' + esc(o.raw) : '') + '</div>' + flag + '</td>' +
     '<td><input type="text" class="amt" data-g="' + g + '" data-i="' + i + '" value="' + (o.amt || 0) + '"></td>' +
-    '<td>' + (o.carry ? esc(o.dateText) : dshort(o.date)) + '</td></tr>';
+    '<td>' + (o.carry ? esc(o.dateText) : dshort(o.date)) + '</td>' +
+    '<td style="text-align:center"><input type="checkbox" class="fundcb" title="기금회계 사업이면 체크 (이 PC가 기억해 다음 달에도 표시)" data-g="' + g + '" data-i="' + i + '"' + (o.fund ? ' checked' : '') + '></td></tr>';
+}
+function fundLine() {
+  if (!LIST) return '';
+  var f = LIST.A.concat(LIST.C, LIST.B).filter(function (o) { return o.fund; }), on = f.filter(function (o) { return o.on; });
+  return f.length ? '기금 표시 <b>' + f.length + '건</b> (넣을 줄 ' + on.length + '건 · ' + on.reduce(function (a, o) { return a + (+o.amt || 0); }, 0).toLocaleString() + '천원): ' + f.map(function (o) { return esc(o.name.replace(/^\(기금\)/, '').slice(0, 24)); }).join(', ') : '기금 표시 0건';
 }
 function picked() { return LIST.A.concat(LIST.C, LIST.B).filter(function (o) { return o.on; }); }
 function sumNow() { var s = 0; picked().forEach(function (o) { s += +o.amt || 0; }); return s; }
@@ -540,11 +554,13 @@ function render() {
        '<div><span class="n" id="rnd">' + (Math.round(s / 10000) * 10000).toLocaleString() + '</span><span class="l">반올림(천원 · 지난달 시트와 같은 ROUND(합계,-4))</span></div></div>';
   if (L.dErr) h += '<div class="msg warn"><b>관급자재(납품요구)를 받지 못했습니다:</b> ' + esc(L.dErr) +
        '<br>인증키가 「조달청_나라장터쇼핑몰 품목정보 서비스」에 등록되지 않았다면 <a href="https://www.data.go.kr/data/15129471/openapi.do" target="_blank" rel="noopener">공공데이터포털에서 활용신청</a>하세요 (같은 인증키로 됩니다).</div>';
-  h += '<div class="msg info">체크한 줄만 넣습니다. 이름·금액은 고칠 수 있습니다. <b>기금회계</b>는 나라장터로 구분되지 않아, 지난달 표에서 「(기금)」이었던 계약만 자동으로 표시합니다.</div>';
+  var fl = L.A.concat(L.C, L.B).filter(function (o) { return o.fund; });
+  h += '<div class="msg info">왼쪽 칸을 체크한 줄만 넣습니다. 이름·금액은 고칠 수 있습니다.<br><b>기금회계</b>는 나라장터로 구분되지 않아 맨 오른쪽 「기금」 칸으로 표시합니다. 체크하면 이름 앞에 「(기금)」이 붙고, <b>이 PC가 기억해 다음 달에도 자동으로 표시</b>합니다. 지난달 표의 (기금)도 이어받습니다. 금액은 교특회계분만 남기세요.' +
+       '<br><span id="fundSum">' + fundLine() + '</span></div>';
   h += '<button class="go" id="save">「' + esc(el('ym').value.replace(/^20(\d\d)-0?(\d+)$/, '$1년 $2월')) + '」 시트를 붙여 내려받기</button></div>';
   var tb = function (title, list, g, note) {
     return '<div class="card"><h2>' + title + ' <span class="cnt">' + list.length + '건</span></h2>' + (note ? '<div class="tip">' + note + '</div>' : '') +
-      (list.length ? '<div class="scroll"><table class="lst"><tr><th></th><th>구분</th><th>사업명</th><th>금액(천원)</th><th>준공예정일</th></tr>' + list.map(function (o, i) { return rowHtml(o, i, g); }).join('') + '</table></div>' : '<div class="empty">없습니다.</div>') + '</div>';
+      (list.length ? '<div class="scroll"><table class="lst"><tr><th></th><th>구분</th><th>사업명</th><th>금액(천원)</th><th>준공예정일</th><th title="기금회계 사업이면 체크">기금</th></tr>' + list.map(function (o, i) { return rowHtml(o, i, g); }).join('') + '</table></div>' : '<div class="empty">없습니다.</div>') + '</div>';
   };
   h += tb('준공예정일 ' + dshort(L.rs) + ' ~ ' + dshort(L.re) + ' 공사·용역·관급자재', L.A, 'A', '나라장터 최신(변경계약 반영) 금액과 준공(완료)·납품기한입니다. 관급자재는 나라장터쇼핑몰 납품요구입니다.');
   h += tb('지난달 표에 있었는데 이번 범위에 없는 건', L.C, 'C', '아직 지급하지 않아 이번 달에도 넣어야 하는 건만 체크하세요.');
@@ -555,9 +571,17 @@ function render() {
 el('res').addEventListener('change', function (e) {
   var g = e.target.getAttribute('data-g'), i = +e.target.getAttribute('data-i'); if (!g || !LIST) return;
   var o = LIST[g][i];
-  if (e.target.type === 'checkbox') { o.on = e.target.checked; e.target.closest('tr').classList.toggle('off', !o.on); }
+  if (e.target.classList.contains('fundcb')) {        // 기금 표시: 이름 앞 (기금), 이 PC에 기억
+    o.fund = e.target.checked; o.fundWhy = o.fund ? '직접 표시' : '';
+    o.name = withFund(o.name, o.fund); fundSave(o.fkey || norm(o.raw), o.fund);
+    var tr = e.target.closest('tr'), nmi = tr.querySelector('.nmi'); if (nmi) nmi.value = o.name;
+    var td = tr.querySelector('td.nm'), old = td.querySelector('.tg.fund'); if (old) old.remove();
+    if (o.fund) td.insertAdjacentHTML('beforeend', '<span class="tg fund">기금회계 · 직접 표시 — 교특회계분만 남기세요</span>');
+  }
+  else if (e.target.type === 'checkbox') { o.on = e.target.checked; e.target.closest('tr').classList.toggle('off', !o.on); }
   else if (e.target.classList.contains('amt')) o.amt = Math.round(+String(e.target.value).replace(/,/g, '') || 0);
   else o.name = e.target.value;
+  if (el('fundSum')) el('fundSum').innerHTML = fundLine();
   var s = sumNow(); el('cnt').textContent = picked().length; el('sum').textContent = s.toLocaleString(); el('rnd').textContent = (Math.round(s / 10000) * 10000).toLocaleString();
 });
 
