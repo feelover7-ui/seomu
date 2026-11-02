@@ -433,6 +433,7 @@
     <a class="c-pink" href="#excel-merge" data-id="excel-merge"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>엑셀 취합기</a>
     <div class="group">계약 · 시설</div>
     <a class="c-coral" href="#contract-ledger" data-id="contract-ledger"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>공사대장 만들기<span class="tag">인터넷</span></a>
+    <a class="c-coral" href="#fund-need" data-id="fund-need"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M8 3v4M16 3v4M8 14h3M8 17h6"/></svg>자금소요액 산출<span class="tag">인터넷</span></a>
     <a class="c-coral" href="#edu-env-priority" data-id="edu-env-priority"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>교육환경개선 대시보드<span class="tag">보기</span></a>
     <div class="group">기록물</div>
     <a class="c-slate" href="#record-photo" data-id="record-photo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 8v8M12 8v8M15 8v8"/></svg>기록물 실물목록<span class="tag">사진</span></a>
@@ -443,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.12.1 · 2026.11.02 15:40 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.0 · 2026.11.02 17:11 수정</a></div>
 </aside>
 
 <div class="main">
@@ -502,6 +503,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.0</b><span>2026.11.02 17:11</span></div>
+          <ul>
+            <li><b>새 도구: 자금소요액 산출.</b> 지난달 자금소요액 엑셀을 넣으면 대상기간(이번 달 11일~다음 달 10일)과 준공예정일 범위를 잡고, 나라장터에서 그 범위에 준공되는 공사·용역(계약정보, 변경계약 반영 최종 금액)과 관급자재(나라장터쇼핑몰 납품요구의 납품기한·최종 금액)를 찾아 지난달 시트와 같은 모양의 새 시트를 파일 맨 앞에 붙여 줌. 지난달 표에 있던 건·(기금) 표시를 알려 주고, 시설 계약이 아닌 것(버스 임차·연수 등)은 따로 둠. 공사대장과 같은 인증키 사용</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.12.1</b><span>2026.11.02 15:40</span></div>
           <ul>
@@ -1078,6 +1085,12 @@
           <div class="d">인증키·기관코드·기간 → 계약 21개 항목 엑셀 (공공데이터포털 인증키 필요)</div>
           <div class="f"><span class="online">조달청 서버 접속</span><span class="go">열기 →</span></div>
         </a>
+        <a class="tile c-coral" href="#fund-need">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M8 3v4M16 3v4M8 14h3M8 17h6"/></svg></span><span class="cat">계약 · 시설</span></div>
+          <div class="t">자금소요액 산출</div>
+          <div class="d">지난달 자금소요액 엑셀 → 이번 달 준공예정 공사·용역·관급자재를 나라장터에서 찾아 새 시트로</div>
+          <div class="f"><span class="online">조달청 서버 접속</span><span class="go">열기 →</span></div>
+        </a>
         <a class="tile c-coral" href="#edu-env-priority">
           <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="cat">계약 · 시설</span></div>
           <div class="t">교육환경개선 대상사업 대시보드</div>
@@ -1336,6 +1349,30 @@
           </details>
         </div>
 
+        <div class="tool c-coral" data-id="fund-need">
+          <h3><span class="dot"></span><a href="#fund-need">자금소요액 산출</a></h3>
+          <p class="desc">매달 하는 자금소요액 산출을 도와줍니다. 지난달 파일을 넣으면 대상기간·준공예정일 범위를 잡고, 나라장터에서 그 범위에 준공되는 공사·용역(계약정보)과 관급자재(쇼핑몰 납품요구)를 최신 금액으로 찾아 지난달과 같은 모양의 새 시트를 붙여 줍니다.</p>
+          <p class="io"><span class="in">지난달 자금소요액 엑셀 + 인증키·기관코드</span><span class="arrow">→</span><span class="out">새 달 시트를 맨 앞에 붙인 엑셀</span><span class="net online">· 조달청 서버 접속</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="cap"><code>자금소요액_26년 11월 추가.xlsx</code> · 가상 자료 · 지난달 시트 서식 그대로</p>
+            <div class="xl">
+              <div class="scroll">
+                <table>
+                  <tr><th>대상기간</th><td class="l" colspan="3">11. 11. ~ 12. 10.</td></tr>
+                  <tr><th>준공예정일</th><td class="l" colspan="3">10. 21. ~ 11. 20.</td></tr>
+                  <tr><th></th><th>사업명</th><th>금액(천원)</th><th>준공예정일</th></tr>
+                  <tr><td></td><td class="l">○○중 담장개선공사</td><td class="r">35,307</td><td>26. 10. 28.</td></tr>
+                  <tr><td></td><td class="l">△△초 본관동 화장실개선공사</td><td class="r">967,749</td><td>26. 11. 5.</td></tr>
+                  <tr><td></td><td class="l">□□고 외 2교 건축물 정밀안전점검용역</td><td class="r">85,433</td><td>26. 10. 27.</td></tr>
+                  <tr><td></td><td class="l">○○초 인조잔디 조성공사 관급자재(인조잔디) 구매</td><td class="r">65,205</td><td>26. 11. 16.</td></tr>
+                </table>
+              </div>
+              <div class="tabs"><button type="button" class="on">26년 11월</button><button type="button">26년 10월</button><button type="button">26년 9월</button></div>
+            </div>
+          </details>
+        </div>
+
         <div class="tool c-coral" data-id="edu-env-priority">
           <h3><span class="dot"></span><a href="#edu-env-priority">교육환경개선 대상사업 대시보드</a></h3>
           <p class="desc">서울시교육청 교육시설안전과가 공개한 「2027~2028년 교육환경개선 대상사업 우선순위」 PDF 12개를 표로 옮겨 한 화면에 모았습니다. 기관·분야·학교급·공립/사립·자치구·우선순위·사업당 금액으로 좁히면, 그 조건과 결과를 보고서에 붙일 한 문장으로 만들어 줍니다. 기관 × 분야 교차표, 원문 PDF 번호·쪽·연번 근거, 총괄표와의 대조를 함께 보여 주고, 표는 지금 조건 그대로 엑셀용 CSV로 내려받습니다.</p>
@@ -1380,8 +1417,8 @@
   });
 
   (function () {
-    var VERSION = '1.12.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.02 15:40';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.02 17:11';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1389,6 +1426,7 @@
       'local-travel':     '관내출장여비 지급내역 만들기',
       'excel-merge':      '엑셀 취합기',
       'contract-ledger':  '공사대장 만들기',
+      'fund-need':        '자금소요액 산출',
       'complaint-ledger': '고충민원 점검대장 만들기',
       'edu-status':       '법정교육 이수현황 만들기',
       'record-photo':     '기록물 실물목록 만들기',
@@ -1446,6 +1484,11 @@
         steps: ['위쪽 필터로 범위 고르기 (그래프 막대나 교차표 칸을 눌러도 됨)', '조건 문장·요약 숫자 확인, 「문장 복사」로 보고서에 붙이기', '학교별 합계·사업 목록을 「CSV 내려받기」 (지금 조건 그대로, 엑셀에서 바로 열림)'],
         check: '공개 PDF를 옮긴 자료라 숫자는 원문과 같지만, 실제 예산 반영 시기와 금액은 재정 여건에 따라 달라집니다. 우선순위는 기관 안에서 분야별로 매긴 순위입니다. 총괄표와 다른 곳(학교 수 1교, 서부 소요액 2천원 등)은 「원문 대조」에 모아 두었고, 사업마다 「근거」로 원문 위치를 확인할 수 있습니다.'
       },
+      'fund-need': {
+        need: '지난달 자금소요액 엑셀, 공공데이터포털 인증키(계약정보서비스·나라장터쇼핑몰 품목정보 서비스 두 가지 활용신청)와 기관코드. 인터넷이 필요합니다.',
+        steps: ['지난달 자금소요액 엑셀 넣기 (가장 나중 달 시트를 본보기로 씀)', '산출 월·대상기간·준공예정일 범위 확인 후 「나라장터에서 찾기」', '넣을 줄 체크·금액 확인 (지난달 표에 있던 건, 기금 표시 확인)', '「새 시트를 붙여 내려받기」'],
+        check: '기금회계는 나라장터로 구분되지 않아 지난달 표에서 (기금)이었던 계약만 표시합니다. 학교회계전출금 표는 직접 채웁니다. 조달청 서버가 느려 처음 조회는 몇 분 걸릴 수 있습니다.'
+      },
       'contract-ledger': {
         need: '공공데이터포털 인증키(일반 인증키 Decoding)와 기관코드(도구 안에서 이름으로 검색). 인터넷이 필요합니다.',
         steps: ['인증키·기관코드·조회 기간 입력', '「조회 시작」', '「공사대장 엑셀로 내려받기」'],
@@ -1462,6 +1505,7 @@
       'complaint-ledger': { note: '가상 민원 14건의 민원처리대장', steps: [['#fileInput', ['고충민원_2_민원처리대장_2026년3분기.xlsx']]] },
       'edu-status': { note: '가상 부서원 4명을 적어 둔 이수현황 서식과 가상 이수증 PDF 5개(9장)', steps: [['#tplInput', ['법정교육_1_이수현황서식.xlsx']], ['#fileInput', ['법정교육_2_이수증_김가나_법정묶음.pdf', '법정교육_3_이수증_이다라_법정묶음.pdf', '법정교육_4_이수증_김가나_성인지.pdf', '법정교육_5_이수증_여러장.pdf', '법정교육_6_이수증_성인지_통일.pdf']]] },
       'record-photo': { note: '가상 바인더 11권을 찍은 사진 2장(세로쓰기·누운 글씨)', steps: [['#photoInput', ['기록물_1_바인더사진_세로쓰기.jpg', '기록물_2_바인더사진_누운글씨.jpg']]] },
+      'fund-need': { note: '가상 지난달(26년 10월) 자금소요액 파일 (조회는 인증키가 있어야 합니다)', steps: [['#file', ['자금소요액_지난달_예시.xlsx']]] },
       'excel-merge': { note: '가상 빈 양식과 학교 2곳의 제출 파일', steps: [['#tplInput', ['엑셀취합_빈양식.xlsx']], ['#fileInput', ['엑셀취합_학교1_가나초.xlsx', '엑셀취합_학교2_다라중.xlsx']]] }
     };
     var sampleRun = 0, sampleAbort = null;
@@ -1619,7 +1663,7 @@
 
     // 도구 한 번에 받기: 지금 사이트의 파일을 모아 압축 (항상 최신본)
     var BUNDLE = ['index.html',
-      'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html', 'tools/complaint-ledger.html', 'tools/edu-status.html', 'tools/excel-merge.html',
+      'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html', 'tools/complaint-ledger.html', 'tools/edu-status.html', 'tools/excel-merge.html', 'tools/fund-need.html',
       'tools/edu-env-priority.html',   // 교육환경개선 대시보드: 자료가 파일 안에 들어 있음
       'tools/record-photo.html',   // 기록물 실물목록: 파일로 열면 글자 인식이 막혀 「웹 주소에서 여세요」 안내만 보임 (인식 파일 ocr/는 넣지 않음)
       'samples/기록물_대조표_양식.xlsx',
@@ -1627,6 +1671,7 @@
       'samples/초과근무미입력_1_초과근무확인목록_2026년8월.xlsx', 'samples/초과근무미입력_2_지문기록_2026년8월.xlsx',
       'samples/관내여비_1_대상목록_2026년8월.xlsx', 'samples/관내여비_3_근무상황부_2026년8월.xlsx',
       'samples/고충민원_1_점검대장서식_2026년3분기.xlsx', 'samples/고충민원_2_민원처리대장_2026년3분기.xlsx',
+      'samples/자금소요액_지난달_예시.xlsx',
       'samples/엑셀취합_빈양식.xlsx', 'samples/엑셀취합_학교1_가나초.xlsx', 'samples/엑셀취합_학교2_다라중.xlsx',
       'samples/법정교육_1_이수현황서식.xlsx', 'samples/법정교육_2_이수증_김가나_법정묶음.pdf', 'samples/법정교육_3_이수증_이다라_법정묶음.pdf',
       'samples/법정교육_4_이수증_김가나_성인지.pdf', 'samples/법정교육_5_이수증_여러장.pdf', 'samples/법정교육_6_이수증_성인지_통일.pdf'];
@@ -1635,7 +1680,7 @@
       '2. index.html 을 더블클릭하면 첫 화면이 열립니다.\r\n' +
       '   도구만 쓰려면 tools 폴더의 파일을 바로 더블클릭해도 됩니다.\r\n' +
       '3. 설치할 것은 없고, 넣은 자료는 이 PC 밖으로 나가지 않습니다.\r\n' +
-      '   (공사대장 만들기만 조회할 때 조달청 서버에 접속합니다)\r\n\r\n' +
+      '   (공사대장 만들기·자금소요액 산출만 조회할 때 조달청 서버에 접속합니다)\r\n\r\n' +
       '- samples 폴더: 시험해 볼 가짜 자료입니다.\r\n' +
       '- 파일로 열면 「예시 파일로 해 보기」 버튼은 동작하지 않을 수 있어요. samples 폴더의 파일을 직접 넣어 보세요.\r\n' +
       '- 새 버전: https://sen-tool.github.io\r\n' +
