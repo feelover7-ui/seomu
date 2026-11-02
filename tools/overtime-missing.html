@@ -76,6 +76,23 @@
   table.lst thead th .ar { font-size:10px; color:#3a6ea5; }
   table.lst td.nm { text-align:left; }
   table.lst tr.hol td { background:#f5f9ff; }
+  /* 나이스 기준 달력 */
+  .cal { display:inline-grid; grid-template-columns:repeat(7, 74px); gap:4px; margin:8px 14px 4px 0; vertical-align:top; }
+  .cal .mh { grid-column:1 / -1; font-weight:700; font-size:13.5px; margin-bottom:2px; }
+  .cal .wh { text-align:center; font-size:11.5px; color:#6b7280; }
+  .cal .wh.sun, .cal .wh.sat { color:#c0392b; }
+  .cal .d { border:1px solid #e3e0d9; border-radius:6px; min-height:50px; padding:3px 5px; font-size:12px;
+            cursor:pointer; background:#fff; user-select:none; }
+  .cal .d:hover { border-color:#3a6ea5; }
+  .cal .d .n { font-weight:700; }
+  .cal .d .b { display:block; font-size:10.5px; color:#6b7280; line-height:1.35; }
+  .cal .d.hol { background:#fdeeee; border-color:#f1c4c4; }
+  .cal .d.hol .n { color:#c0392b; }
+  .cal .d.pub { box-shadow:inset 0 0 0 2px #e08b8b; }
+  .cal .d.odd { background:#fff8de; border-color:#f0e0a0; }
+  .cal .d.user { outline:2px dashed #3a6ea5; outline-offset:1px; }
+  .cal .d.blank { visibility:hidden; cursor:default; }
+  .calnote { font-size:12.5px; color:#4b5563; line-height:1.75; }
   table.lst tr.miss td { background:#fff6f6; }
   table.lst td.bad { background:#fdd !important; color:#a11; font-weight:700;
                      font-family:Consolas,monospace; }
@@ -460,7 +477,7 @@ function readNeis(grid) {
       dept: dp, rank: rk, name: nm || "",
       date: d, wd: weekday(d),
       kind: raw(c.kind),
-      hol: norm(raw(c.hol)) === "O",
+      hol: norm(raw(c.hol)) === "O", holNeis: norm(raw(c.hol)) === "O", holCal: false,
       flex: norm(raw(c.flex)) === "O",
       aSt: hhmm(g[c.aSt]), aEn: hhmm(g[c.aEn]),
       pSt: hhmm(g[c.pSt]), pEn: hhmm(g[c.pEn]),
@@ -695,6 +712,90 @@ function readFinger(grid, override) {
            months: Object.keys(months).sort(), dup: dup, meta: m, wide: m.wide };
 }
 
+/* ===================== 나이스 기준 달력 =====================
+   나이스 파일에서 휴일로 신청한 사람이 있는 날을 휴일로 봅니다.
+     - 토·일요일
+     - 2명 이상이 「휴일신청여부」 O 로 신청한 날, 또는 그날 신청한 사람이 모두 O 인 날
+   (1명만 O 이고 다른 사람은 평일로 신청한 날은 잘못 신청했을 수 있어 노랗게 보여 주고, 누르면 휴일로 바꿀 수 있습니다)
+   이렇게 휴일로 본 날은, 평일로 신청한 건도 휴일처럼(그날 지문 전체) 처리합니다. */
+var CALSET = {};     // 사용자가 눌러 바꾼 날 { "2026-10-05": true(휴일) / false(평일) }
+var CAL = null;
+function buildCal(n) {
+  var days = {};
+  n.rows.forEach(function (x) {
+    var d = days[x.date] = days[x.date] || { o: {}, all: {}, rows: 0 };
+    d.rows++; d.all[x.name] = 1;
+    if (x.holNeis) d.o[x.name] = 1;
+  });
+  var auto = {};
+  Object.keys(days).forEach(function (k) {
+    var o = Object.keys(days[k].o).length, a = Object.keys(days[k].all).length;
+    days[k].oCnt = o; days[k].aCnt = a;
+    auto[k] = o >= 2 || (o >= 1 && o === a);
+  });
+  return { days: days, auto: auto };
+}
+function isWeekend(date) { var w = weekday(date); return w === "토" || w === "일"; }
+function isHolDay(date) {
+  if (CALSET.hasOwnProperty(date)) return CALSET[date];
+  return isWeekend(date) || !!(CAL && CAL.auto[date]);
+}
+function applyCal(n) {
+  CAL = buildCal(n);
+  n.rows.forEach(function (x) {
+    var h = isHolDay(x.date);
+    x.hol = x.holNeis || h;
+    x.holCal = !x.holNeis && h;        // 나이스에는 평일로 신청했지만 달력상 휴일
+  });
+}
+function calCard() {
+  if (!CAL || !N1) return "";
+  var mon = (N1.months || []).slice(0, 2);
+  if (!mon.length) return "";
+  var h = '<div class="card"><h2 style="margin-top:0">나이스 기준 달력 ' +
+          '<span style="font-weight:400;color:#6b7280;font-size:12px">초과근무확인목록에서 휴일로 신청한 날을 휴일로 봅니다 · 날짜를 누르면 휴일↔평일이 바뀝니다</span></h2>';
+  var pubs = [], odd = [];
+  mon.forEach(function (m) {
+    var y = +m.slice(0, 4), mo = +m.slice(5, 7), last = new Date(y, mo, 0).getDate();
+    var first = (new Date(y, mo - 1, 1).getDay() + 6) % 7;     // 월요일 = 0
+    h += '<div class="cal"><div class="mh">' + y + '년 ' + mo + '월</div>';
+    WD.forEach(function (w) { h += '<div class="wh' + (w === "일" ? " sun" : w === "토" ? " sat" : "") + '">' + w + '</div>'; });
+    for (var b = 0; b < first; b++) h += '<div class="d blank"></div>';
+    for (var d = 1; d <= last; d++) {
+      var ds = y + "-" + pad(mo) + "-" + pad(d), info = CAL.days[ds], hol = isHolDay(ds), wk = isWeekend(ds);
+      var o = info ? info.oCnt : 0, a = info ? info.aCnt : 0;
+      var cls = "d" + (hol ? " hol" : "") + (hol && !wk ? " pub" : "") + (!hol && o ? " odd" : "") + (CALSET.hasOwnProperty(ds) ? " user" : "");
+      if (hol && !wk) pubs.push(mo + "." + d + ".(" + weekday(ds) + ")");
+      if (!hol && o) odd.push(mo + "." + d + ".(" + weekday(ds) + ") " + o + "명");
+      h += '<div class="' + cls + '" data-cal="' + ds + '" title="' + (hol ? "휴일" : "평일") + ' · 신청 ' + a + '명 중 휴일 신청 ' + o + '명 · 누르면 바뀝니다">' +
+           '<span class="n">' + d + '</span>' +
+           (a ? '<span class="b">신청 ' + a + '명</span>' : '') +
+           (o ? '<span class="b">휴일 ' + o + '명</span>' : '') + '</div>';
+    }
+    h += '</div>';
+  });
+  var byCal = N1.rows.filter(function (x) { return x.holCal; });
+  h += '<div class="calnote">' +
+       (pubs.length ? '<b>평일 중 휴일로 본 날:</b> ' + pubs.join(", ") + '<br>' : '평일 중 휴일로 본 날은 없습니다.<br>') +
+       (byCal.length ? '이 날 <b>평일로 신청된 ' + byCal.length + '건</b>도 휴일처럼(그날 지문 전체) 처리합니다. 목록에 「·휴(달력)」으로 보입니다.<br>' : '') +
+       (odd.length ? '<span style="background:#fff8de;padding:1px 5px;border-radius:3px">노란 날</span>은 한 사람만 휴일로 신청한 평일입니다(' + odd.join(", ") + '). 실제 휴일이면 눌러서 바꾸세요.<br>' : '') +
+       (Object.keys(CALSET).length ? '<span style="outline:2px dashed #3a6ea5;padding:0 4px">점선</span>은 직접 바꾼 날입니다. <a href="#" id="calReset">처음대로</a>' : '') +
+       '</div></div>';
+  return h;
+}
+function bindCal() {
+  Array.prototype.forEach.call(document.querySelectorAll("[data-cal]"), function (e) {
+    e.onclick = function () {
+      var d = e.getAttribute("data-cal"), auto = isWeekend(d) || !!(CAL && CAL.auto[d]);
+      var now = !isHolDay(d);
+      if (now === auto) delete CALSET[d]; else CALSET[d] = now;
+      render();
+    };
+  });
+  var r = el("calReset");
+  if (r) r.onclick = function (ev) { ev.preventDefault(); CALSET = {}; render(); };
+}
+
 /* ===================== 지문 붙이기 ===================== */
 /* 신청한 시간대 안에 찍힌 지문만 씁니다.
    평일 아침 출근 지문(예: 08:15)은 근무시간 안이라 자동으로 빠집니다. */
@@ -734,7 +835,7 @@ function attach(neis, fp) {
                - 아침 초과근무 → 근무 시작시각 이전
        개인근무시간이 없으면 신청시간으로 대신합니다. */
     var inRange = list;
-    x.rule = "휴일 · 지문 전체";
+    x.rule = x.holCal ? "휴일(나이스 달력) · 지문 전체" : "휴일 · 지문 전체";
 
     if (!x.hol) {
       var pS = toMin(x.pSt), pE = toMin(x.pEn);
@@ -841,7 +942,7 @@ function take(which, f) {
       var grid = picked.grid;
       if (which === 2) { SHEETS = wb; SHEETNAME = picked.name; }
       if (which === 1) {
-        N1 = readNeis(grid);
+        N1 = readNeis(grid); CALSET = {};
         var m = N1.rows.filter(function (x) { return x.empty; }).length;
         mark(el("dz1"), f.name, "전체 " + N1.rows.length + "건 · 미입력 " + m + "건");
       } else {
@@ -879,13 +980,15 @@ function render() {
     return;
   }
   el("demo").style.display = "none";
+  applyCal(N1);
 
   if (!N2) {
     var m0 = N1.rows.filter(function (x) { return x.empty; }).length;
     out.innerHTML = '<div class="card"><div class="msg info">' +
       '<b>초과근무확인목록을 받았습니다.</b> 전체 ' + N1.rows.length +
       '건 중 실제 시간이 비어 있는 건이 ' + m0 + '건입니다.<br>' +
-      '이제 <b>출퇴근자료(지문 기록)</b> 를 넣으면, 그중 지문 기록이 있는 건을 찾아 드립니다.</div></div>';
+      '이제 <b>출퇴근자료(지문 기록)</b> 를 넣으면, 그중 지문 기록이 있는 건을 찾아 드립니다.</div></div>' + calCard();
+    bindCal();
     return;
   }
 
@@ -939,7 +1042,8 @@ function render() {
     h += '<div class="msg ok"><b>입력할 건이 없습니다.</b> ' +
          (miss.length ? '미입력 ' + miss.length + '건은 모두 넣을 값을 찾지 못했습니다.'
                       : '모든 건에 실제 시간이 채워져 있습니다.') + '</div></div>';
-    out.innerHTML = h + (none.length ? noneCard(none) : "");
+    out.innerHTML = h + calCard() + (none.length ? noneCard(none) : "");
+    bindCal();
     return;
   }
 
@@ -967,6 +1071,9 @@ function render() {
   /* --- 지문도 없는 건 --- */
   if (none.length) h += noneCard(none);
 
+  /* --- 나이스 기준 달력 --- */
+  h += calCard();
+
   /* --- 전체 목록 (접어 두기) --- */
   if (!ONLY) {
     h += '<div class="card"><h2 style="margin-top:0">전체 목록 ' +
@@ -983,6 +1090,7 @@ function render() {
   out.innerHTML = h;
 
   bindColBar();
+  bindCal();
 
   Array.prototype.forEach.call(document.querySelectorAll("th.srt"), function (e) {
     e.onclick = function () {
@@ -1191,7 +1299,7 @@ function listTable(rows, onlyMiss, tid) {
          '<td>' + esc(x.no) + '</td>' +
          '<td class="nm">' + esc(x.name || "-") + '</td>' +
          '<td>' + x.date + '</td>' +
-         '<td>' + x.wd + (x.hol ? " ·휴" : "") + '</td>' +
+         '<td>' + x.wd + (x.holCal ? " ·휴(달력)" : x.hol ? " ·휴" : "") + '</td>' +
          '<td style="font-size:11.5px;color:#6b7280">' + esc(x.kind) + '</td>' +
          '<td class="t">' + esc(x.aSt || "-") + '</td>' +
          '<td class="t">' + esc(x.aEn || "-") + '</td>';
@@ -1274,7 +1382,7 @@ function saveExcel(todo, none) {
     });
     rows.forEach(function (x, i) {
       var r = ws.getRow(i+2);
-      [x.no, x.dept, x.rank, x.name, x.date, x.wd, x.hol ? "O" : "", x.kind,
+      [x.no, x.dept, x.rank, x.name, x.date, x.wd, x.holCal ? "O(달력)" : x.hol ? "O" : "", x.kind,
        x.pSt, x.pEn, x.aSt, x.aEn,
        x.needSt ? x.fSt : x.rSt, x.needEn ? x.fEn : x.rEn,
        (x.fState === "찾음" ? x.rule : ""), memoOf(x), x.fAll].forEach(function (v, k) {
@@ -1325,7 +1433,7 @@ function saveExcel(todo, none) {
     var r = ws3.getRow(i+2);
     var st = x.empty ? x.fSt : x.rSt, en = x.empty ? x.fEn : x.rEn;
     var stat = !x.empty ? "" : (x.fState === "찾음" ? "지문에서 찾음" : "지문 없음");
-    [x.no, x.name, x.date, x.wd, x.hol ? "O" : "", x.kind, x.aSt, x.aEn,
+    [x.no, x.name, x.date, x.wd, x.holCal ? "O(달력)" : x.hol ? "O" : "", x.kind, x.aSt, x.aEn,
      st, en, x.rSum, stat].forEach(function (v, k) {
       var c = r.getCell(k+1);
       c.value = (v === "" || v == null) ? null : v;
