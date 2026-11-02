@@ -444,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.2 · 2026.11.03 08:32 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.3 · 2026.11.03 08:44 수정</a></div>
 </aside>
 
 <div class="main">
@@ -503,6 +503,13 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.3</b><span>2026.11.03 08:44</span></div>
+          <ul>
+            <li>자금소요액 산출: <b>기금회계 건은 합계에서 뺍니다</b> (교특회계분이 섞였으면 금액을 고치고 다시 체크). 기금 제목이 없는 계약은 교특회계로 봅니다</li>
+            <li>자금소요액 산출: <b>「기금회계 문서 제목」 붙여 넣기</b> — 「(기금회계)공사 집행 및 계약 요청(…)」 같은 제목 목록을 붙여 넣으면 이름이 같은 계약을 기금으로 자동 분류(감리 등 딸린 계약은 따로 봄 · 관급자재는 학교와 물품으로 맞춤). 붙여 넣은 제목은 저장하지 않고, 기금으로 찾은 계약만 이 PC가 기억</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.13.2</b><span>2026.11.03 08:32</span></div>
           <ul>
@@ -1429,8 +1436,8 @@
   });
 
   (function () {
-    var VERSION = '1.13.2';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.03 08:32';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.3';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.03 08:44';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
