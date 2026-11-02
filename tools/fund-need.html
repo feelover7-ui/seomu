@@ -215,7 +215,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div id="res"></div>
 
   <div class="foot">
-    산출 방법: 대상기간(이번 달 11일 ~ 다음 달 10일)에 맞춰, 준공예정일이 범위 안인 공사·용역(나라장터 계약정보의 준공·완료기한)과 관급자재(나라장터쇼핑몰 납품요구의 납품기한)를 모읍니다. 금액은 변경계약을 반영한 최종 금액(천원)입니다.<br>
+    산출 방법: 대상기간(이번 달 11일 ~ 다음 달 10일)의 시작일 20일 전 ~ 끝나는 날 20일 전에 준공(예정)되는 건은 대상기간 안에 대금이 나갈 수 있다고 보고, 준공예정일이 그 범위 안인 공사·용역(나라장터 계약정보의 준공·완료기한)과 관급자재(나라장터쇼핑몰 납품요구의 납품기한)를 모읍니다. 금액은 변경계약을 반영한 최종 금액(천원)입니다.<br>
     지난달 시트를 그대로 본떠 새 시트를 파일 맨 앞에 붙이므로 서식·합계 수식이 지난달과 같습니다. 넣은 파일 자체는 바뀌지 않고, 새 파일로 내려받습니다.
   </div>
 </div>
@@ -377,15 +377,15 @@ function readPrev(file) {
   };
   rd.readAsArrayBuffer(file);
 }
-// 산출 월: 대상기간 M.11.~M+1.10. / 준공예정일 지난달 범위 다음 날 ~ M.20. (지난달 범위를 못 읽으면 M-1.21.~M.20.)
+// 산출 월: 대상기간 M.11.~M+1.10.
+// 준공예정일: 대상기간 시작일 20일 전 ~ 끝나는 날 20일 전 (양 끝 포함)
+//   대상기간 20일 전에 준공된 공사는 대상기간 안에 대금이 나갈 수 있어서
 function setMonth(y, m) {
   if (m > 12) { y++; m -= 12; }
   el('ym').value = y + '-' + pad(m);
   var nx = new Date(y, m, 10);
   el('period').value = m + '. 11. ~ ' + (nx.getMonth() + 1) + '. 10.';
-  var st = new Date(y, m - 2, 21), pr = PREV && mdPair(PREV.range);
-  if (pr) { var e = new Date(y, pr[1][0] - 1, pr[1][1] + 1); if (pr[1][0] > m) e.setFullYear(y - 1); st = e; }
-  el('rs').value = iso(st); el('re').value = iso(new Date(y, m - 1, 20));
+  el('rs').value = iso(new Date(y, m - 1, 11 - 20)); el('re').value = iso(new Date(nx.getFullYear(), nx.getMonth(), 10 - 20));
 }
 el('ym').onchange = function () { var p = this.value.split('-'); if (p.length === 2) setMonth(+p[0], +p[1]); };
 
