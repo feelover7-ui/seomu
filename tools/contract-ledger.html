@@ -105,6 +105,29 @@
   .orgrow b { color:#3a6ea5; font-family:Consolas,monospace; margin-right:10px; }
   .orgmore { padding:8px 12px; font-size:12px; color:#8a929c; }
 
+  /* 질문으로 찾기 */
+  .qbar { display:flex; gap:8px; }
+  .qbar input { flex:1; font-size:15px !important; padding:11px 13px !important; }
+  .qbar button.go { padding:11px 20px; white-space:nowrap; }
+  .qex { display:flex; gap:7px; flex-wrap:wrap; margin-top:9px; }
+  .qa { margin-top:14px; display:flex; flex-direction:column; gap:12px; }
+  .qa:empty { display:none; }
+  .qme { align-self:flex-end; background:#3a6ea5; color:#fff; border-radius:14px 14px 3px 14px;
+         padding:8px 14px; font-size:14px; max-width:85%; }
+  .qans { align-self:stretch; background:#f7f8fa; border:1px solid #e3e6ea; border-radius:3px 14px 14px 14px;
+          padding:12px 14px; font-size:13.5px; line-height:1.75; }
+  .qans .lead { font-size:14.5px; margin-bottom:6px; }
+  .qans .cond { font-size:12px; color:#6b7280; margin-bottom:8px; }
+  .qans .cond b { color:#3d4753; font-weight:600; }
+  .qans table { background:#fff; margin-top:6px; }
+  .qans .big { font-size:20px; font-weight:700; color:#1c4d92; }
+  .qans dl { display:grid; grid-template-columns:110px 1fr; gap:3px 12px; margin:8px 0 0; }
+  .qans dt { color:#6b7280; } .qans dd { margin:0; }
+  .qans .acts { margin-top:9px; display:flex; gap:8px; flex-wrap:wrap; }
+  .qans .acts button { background:#fff; border:1px solid #cfd8e3; border-radius:5px; padding:5px 11px;
+                       font-size:12.5px; cursor:pointer; font-family:inherit; color:#2f5d8f; }
+  .qans details summary { cursor:pointer; color:#6b7280; font-size:12px; margin-top:8px; }
+
 /* 공통: 만든 사람·날짜 표시 숨김 */
 .ver, .made { display: none !important; }
 
@@ -183,6 +206,24 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
         <em>다음에 열 때 자동으로 채워집니다. 공용 PC에서는 켜지 마세요.</em></span>
     </label>
 
+  </div>
+
+  <div class="card" id="qcard">
+    <h2>질문으로 찾기 <span style="font-weight:400;color:#6b7280;font-size:12px">위의 인증키·기관코드로, 기간과 조건을 문장에서 알아서 골라 조회합니다</span></h2>
+    <div class="qbar">
+      <input type="text" id="q" placeholder="예) 작년 하반기 화장실 공사 계약금액 알려줘">
+      <button class="go" id="qgo">묻기</button>
+    </div>
+    <div class="qex" id="qex">
+      <span class="chip">올해 화장실 공사 계약금액</span>
+      <span class="chip">작년 하반기 1억 이상 공사 금액 큰 순</span>
+      <span class="chip">최근 3개월 계약 업체별로</span>
+      <span class="chip">2025년 방수 공사 언제 계약했어?</span>
+      <span class="chip">그중 5천만원 넘는 것만</span>
+    </div>
+    <div class="tip">알아듣는 말: 기간(올해·작년·2025년·하반기·3월~6월·최근 3개월·2분기), 종류(공사·용역·물품), 금액(1억 이상·5천만원 미만),
+      정렬(금액 큰 순·최근 순), 묶기(업체별·공종별·월별·학교별), 「그중 …」(앞 결과에서 다시 고르기). 나머지 낱말은 사업명·공종·업체명에서 찾습니다.</div>
+    <div class="qa" id="qa"></div>
   </div>
 
   <div id="keybox" class="card hide">
@@ -617,8 +658,9 @@ el("remember").addEventListener("change", function () {
 loadSaved();
 
 /* ===================== 조회 ===================== */
+var QLOG = null;           // 질문으로 찾을 때는 그 답 칸의 기록에 씁니다
 function log(msg) {
-  var p = el("logbox");
+  var p = QLOG || el("logbox");
   if (!p) return;
   p.textContent += msg + "\n";
   p.scrollTop = p.scrollHeight;
@@ -1001,6 +1043,316 @@ function showResult() {
       });
   };
 }
+
+
+/* ===================== 질문으로 찾기 =====================
+   문장에서 기간·종류·금액·정렬·묶기를 골라내고, 나머지 낱말은 사업명·공종·업체명에서 찾습니다.
+   한 번 받은 달의 자료는 기억해 두어 이어서 묻는 질문은 바로 답합니다. */
+var QCACHE = {};           // "기관|구분|YYYYMM|사업구분" → 그 달 자료
+var QLAST = null;          // 바로 앞 답의 결과 (「그중 …」에 씀)
+var QBUSY = false;
+
+function qNum(t) {          // "1억 2천만", "5천만", "3000만", "120,000,000" → 원
+  t = String(t).replace(/[,\s원]/g, "");
+  var m = /^(\d+(?:\.\d+)?)억(?:(\d+)천)?(?:(\d+)백)?(?:(\d+))?만?$/.exec(t);
+  if (m) return Math.round(parseFloat(m[1]) * 1e8 + (+m[2] || 0) * 1e7 + (+m[3] || 0) * 1e6 + (+m[4] || 0) * 1e4);
+  m = /^(\d+(?:\.\d+)?)천만$/.exec(t);  if (m) return Math.round(parseFloat(m[1]) * 1e7);
+  m = /^(\d+(?:\.\d+)?)백만$/.exec(t);  if (m) return Math.round(parseFloat(m[1]) * 1e6);
+  m = /^(\d+(?:\.\d+)?)만$/.exec(t);    if (m) return Math.round(parseFloat(m[1]) * 1e4);
+  m = /^(\d+)$/.exec(t);                if (m) return +m[1];
+  return NaN;
+}
+function qWon(n) {          // 126000000 → "1억 2,600만원"
+  n = Math.round(n || 0);
+  if (n < 10000) return n.toLocaleString() + "원";
+  var e = Math.floor(n / 1e8), m = Math.floor((n % 1e8) / 1e4), r = n % 1e4;
+  return ((e ? e + "억 " : "") + (m ? m.toLocaleString() + "만" : "") + (r ? " " + r.toLocaleString() : "")).trim() + "원";
+}
+function qD8(r) { return String(r["계약일"] || "").replace(/\D/g, "").slice(0, 8); }   // 계약일을 YYYYMMDD로
+function qAmt(r) { var v = String(r["총계약금액"] || r["금차계약금액"] || "").replace(/,/g, ""); return /^\d+$/.test(v) ? +v : 0; }
+function qDay(v) { v = String(v || "").replace(/\D/g, ""); return v.length >= 8 ? v.slice(0, 4) + "." + (+v.slice(4, 6)) + "." + (+v.slice(6, 8)) + "." : (v || ""); }
+function qNorm(s) {          // 띄어쓰기 없애고 학교 이름 줄임 (○○초등학교 → ○○초)
+  return String(s || "").replace(/\s+/g, "").replace(/초등학교/g, "초").replace(/중학교/g, "중").replace(/고등학교/g, "고").toLowerCase();
+}
+function qSchool(name) {
+  var m = /([가-힣A-Za-z0-9○△□]{1,12}?(?:초등학교|중학교|고등학교|유치원|학교|초|중|고))(?=[\s_\-·,(]|$|[가-힣])/.exec(String(name || "").replace(/^\(?\d{4}\)?\s*/, ""));
+  return m ? m[1].replace(/초등학교$/, "초").replace(/중학교$/, "중").replace(/고등학교$/, "고") : "(학교 이름 없음)";
+}
+
+function qParse(q, today) {
+  var t = " " + String(q).replace(/[?？!.。]+/g, " ") + " ";
+  var c = { words: [], biz: [], min: null, max: null, sort: "", group: "", refine: false, begin: "", end: "", period: "" };
+  var Y = today.getFullYear(), M = today.getMonth() + 1;
+  function cut(re) { t = t.replace(re, " "); }
+  function set(b, e, label) {
+    var tt = ymd(today);
+    if (e > tt) e = tt;
+    c.begin = b; c.end = e; c.period = label;
+  }
+  function lastDay(y, m) { return new Date(y, m, 0).getDate(); }
+  function ym(y, m, d) { return "" + y + pad(m) + pad(d); }
+
+  if (/^\s*(그중|그 중|이중|이 중|여기서|거기서|그 결과에서|앞 결과에서)/.test(t)) { c.refine = true; cut(/^\s*(그중|그 중|이중|이 중|여기서|거기서|그 결과에서|앞 결과에서)(에서)?/); }
+
+  // 종류
+  [["공사", /공사(?!비)/], ["용역", /용역/], ["물품", /물품|구매/], ["외자", /외자/]].forEach(function (b) { if (b[1].test(t)) c.biz.push(b[0]); });
+
+  // 금액 조건
+  var amtRe = /(\d[\d,.]*\s*(?:억\s*(?:\d+\s*천)?\s*(?:\d+\s*백)?\s*(?:\d+)?\s*만?|천만|백만|만)?)\s*원?\s*(이상|넘는|넘은|초과|보다\s*큰|이하|미만|안\s*되는|아래|보다\s*작은)/g, am;
+  while ((am = amtRe.exec(t))) {
+    var n = qNum(am[1]);
+    if (isNaN(n)) continue;
+    if (/이상|넘|초과|큰/.test(am[2])) c.min = n; else c.max = n;
+  }
+  cut(amtRe);
+
+  // 정렬 · 묶기
+  if (/(금액|돈)?\s*(큰|많은|비싼|높은)\s*(순|것부터|거부터|차례)|금액\s*순|가장\s*(큰|비싼)/.test(t)) c.sort = "amt";
+  else if (/(작은|싼|적은)\s*(순|것부터)/.test(t)) c.sort = "amtAsc";
+  else if (/최근\s*(순|것부터)|최신/.test(t)) c.sort = "new";
+  else if (/오래된\s*(순|것부터)|날짜\s*순|계약일\s*순/.test(t)) c.sort = "old";
+  var g = /(업체|회사|공종|월|학교|종류)\s*별/.exec(t);
+  if (g) c.group = { "업체": "업체", "회사": "업체", "공종": "공종", "월": "월", "학교": "학교", "종류": "사업구분" }[g[1]];
+  cut(/(업체|회사|공종|월|학교|종류)\s*별(로)?/g);
+
+  // 기간 (구체적인 것부터)
+  var d8 = /(\d{4})[.\-\/년\s]*(\d{1,2})[.\-\/월\s]*(\d{1,2})일?\s*[~\-–부터]+\s*(?:(\d{4})[.\-\/년\s]*)?(\d{1,2})[.\-\/월\s]*(\d{1,2})일?(까지)?/.exec(t);
+  var yr = /(?:^|\s)((?:19|20)\d{2}|\d{2})\s*년/.exec(t);
+  var y0 = yr ? (yr[1].length === 2 ? 2000 + +yr[1] : +yr[1]) : null;
+  if (/재작년/.test(t)) y0 = Y - 2; else if (/작년|지난\s*해|전년/.test(t)) y0 = Y - 1; else if (/올해|금년|올\s*해/.test(t)) y0 = Y;
+  var mm = /(\d{1,2})\s*월?\s*(?:~|-|–|부터)\s*(\d{1,2})\s*월/.exec(t), m1 = /(?:^|\s)(\d{1,2})\s*월(?!\s*별)/.exec(t);
+  var rc = /최근\s*(\d+)\s*(개월|달|년)/.exec(t), qt = /([1-4])\s*분기/.exec(t);
+  if (d8) {
+    var ey = d8[4] || d8[1];
+    set(ym(+d8[1], +d8[2], +d8[3]), ym(+ey, +d8[5], +d8[6]), qDay(ym(+d8[1], +d8[2], +d8[3])) + " ~ " + qDay(ym(+ey, +d8[5], +d8[6])));
+  } else if (rc) {
+    var b = rc[2] === "년" ? new Date(Y - +rc[1], today.getMonth(), today.getDate() + 1) : new Date(Y, today.getMonth() - +rc[1], today.getDate() + 1);
+    set(ymd(b), ymd(today), "최근 " + rc[1] + rc[2]);
+  } else if (/이번\s*달|이달/.test(t)) {
+    set(ym(Y, M, 1), ymd(today), "이번 달");
+  } else if (/지난\s*달|저번\s*달/.test(t)) {
+    var lm = new Date(Y, M - 2, 1);
+    set(ym(lm.getFullYear(), lm.getMonth() + 1, 1), ym(lm.getFullYear(), lm.getMonth() + 1, lastDay(lm.getFullYear(), lm.getMonth() + 1)), "지난달");
+  } else {
+    var yy = y0 || Y;
+    if (/상반기/.test(t)) set(ym(yy, 1, 1), ym(yy, 6, 30), yy + "년 상반기");
+    else if (/하반기/.test(t)) set(ym(yy, 7, 1), ym(yy, 12, 31), yy + "년 하반기");
+    else if (qt) set(ym(yy, qt[1] * 3 - 2, 1), ym(yy, qt[1] * 3, lastDay(yy, qt[1] * 3)), yy + "년 " + qt[1] + "분기");
+    else if (mm) set(ym(yy, +mm[1], 1), ym(yy, +mm[2], lastDay(yy, +mm[2])), yy + "년 " + (+mm[1]) + "월~" + (+mm[2]) + "월");
+    else if (m1 && +m1[1] >= 1 && +m1[1] <= 12) set(ym(yy, +m1[1], 1), ym(yy, +m1[1], lastDay(yy, +m1[1])), yy + "년 " + (+m1[1]) + "월");
+    else if (y0) set(ym(y0, 1, 1), ym(y0, 12, 31), y0 + "년");
+  }
+  cut(/(\d{4})[.\-\/년\s]*(\d{1,2})[.\-\/월\s]*(\d{1,2})일?\s*[~\-–부터]+\s*(?:(\d{4})[.\-\/년\s]*)?(\d{1,2})[.\-\/월\s]*(\d{1,2})일?(까지)?/g);
+  cut(/최근\s*\d+\s*(개월|달|년)|이번\s*달|이달|지난\s*달|저번\s*달|재작년|작년|지난\s*해|전년|올해|금년|상반기|하반기|[1-4]\s*분기|(?:(?:19|20)\d{2}|\d{2})\s*년(?:도)?|\d{1,2}\s*월?\s*(?:~|-|–|부터)\s*\d{1,2}\s*월(까지)?|\d{1,2}\s*월/g);
+
+  // 남은 낱말: 묻는 말·종류·조사는 빼고 찾을 낱말로
+  var STOPW = /^(공사|용역|물품|구매|외자|계약|계약금액|금액|계약일|계약일자|언제|얼마|얼마야|얼마였어|알려줘|알려|주세요|줘|찾아줘|찾아|보여줘|보여|뭐야|뭐|있어|있나|있니|했어|했나|했니|된|한|건|것|거|목록|전부|모두|다|관련|관련된|정리|정리해줘|해줘|좀|내역|현황|순|순으로|별로|중|중에|중에서|그리고|에서|및|등|업체|업체명|준공|준공일|착공|착공일|기한|준공기한|총액|합계|몇|몇건|건수|가장|제일|최근|최신|큰|비싼|작은|많은|순서|차수|발주|발주한|발주된|우리|기관|에|의|은|는|이|가|을|를|로|으로|만|도|좀|해|나|랑|하고|어디|누가|무슨|어떤|맡은|따낸|낙찰)$/;
+  t.split(/[\s,·/]+/).forEach(function (w) {
+    w = w.replace(/^["'「『(]+|["'」』)]+$/g, "");
+    if (!w) return;
+    w = w.replace(/(에서|으로|이랑|하고|까지|부터|이에요|예요|이야|였어|이었어|은|는|이|가|을|를|의|에|로|과|와|도|만|랑)$/, function (x) { return w.length - x.length >= 2 ? "" : x; });
+    w = w.replace(/(공사|계약)(은|는|이|가|을|를|의)?$/, function (x, a) { return w.length - x.length >= 2 ? "" : x; });
+    if (!w || STOPW.test(w) || w.length < 2 && !/[A-Za-z0-9]/.test(w)) return;
+    // 「계약했어」「맡았어」「것만」「있나요」 같은 묻는 말 끝
+    if (/(했어|했나|했니|했지|했는지|했나요|었어|았어|였어|었나|았나|됐어|됐나|인가요?|인지|일까|나요|까요|세요|주세요|줘|해줘|봐|볼래|싶어|있어|있나|있는지|없어|것만|거만|건만|것들|거)$/.test(w) && !/(초|중|고|학교|유치원)$/.test(w)) return;
+    c.words.push(w);
+  });
+  c.ask = { amt: /금액|얼마|돈|비용/.test(q), day: /언제|계약일|날짜/.test(q), corp: /업체|회사|누가|어디가|낙찰|따낸|맡은/.test(q), done: /준공|착공|기한|끝나/.test(q), count: /몇\s*건|건수|몇\s*개/.test(q), sum: /합계|총액|모두\s*얼마|다\s*합/.test(q) };
+  return c;
+}
+
+function qMonths(begin, end) {
+  return splitMonths(begin, end, 1).map(function (sg) { return sg[0].slice(0, 6); });
+}
+
+function qFetch(key, inst, begin, end, bizList, onStep) {
+  DIVCD = el("divcd").value; BASE = BASE_HTTPS; STOP = false; LAST07 = false; RAW_SHOWN = false; FAILED = [];
+  var segs = splitMonths(begin, end, 1), jobs = [], all = [];
+  segs.forEach(function (sg) { bizList.forEach(function (b) { jobs.push([sg[0], sg[1], b]); }); });
+  var i = 0, fetched = 0;
+  function cacheKey(j) { return inst + "|" + DIVCD + "|" + j[0].slice(0, 6) + "|" + j[2]; }
+  function next() {
+    if (STOP || i >= jobs.length) return Promise.resolve({ rows: dedup(all), fetched: fetched, failed: FAILED.slice() });
+    var j = jobs[i++], k = cacheKey(j);
+    // 이번 달처럼 아직 끝나지 않은 달은 기억해 둔 자료를 쓰지 않음
+    var monthDone = j[1].slice(0, 6) < ymd(new Date()).slice(0, 6);
+    var whole = j[0].slice(6) === "01" && (j[1].slice(6) === pad(new Date(+j[1].slice(0, 4), +j[1].slice(4, 6), 0).getDate()));
+    if (QCACHE[k] && monthDone) { all = all.concat(QCACHE[k].filter(function (r) { return qD8(r) >= j[0] && qD8(r) <= j[1]; })); return next(); }
+    onStep(i, jobs.length, j);
+    var b0 = whole || !monthDone ? j[0] : j[0].slice(0, 6) + "01";
+    var e0 = whole || !monthDone ? j[1] : j[1].slice(0, 6) + pad(new Date(+j[1].slice(0, 4), +j[1].slice(4, 6), 0).getDate());
+    fetched++;
+    return fetchOne(key, inst, b0, e0, j[2], OPERATIONS[j[2]])
+      .then(function (rs) {
+        if (monthDone) QCACHE[k] = rs;
+        all = all.concat(rs.filter(function (r) { return !qD8(r) || (qD8(r) >= j[0] && qD8(r) <= j[1]); }));
+      })
+      .catch(function (e) { FAILED.push(j[0] + "~" + j[1] + " " + j[2]); log("  [" + j[2] + "] 실패: " + (e && e.message ? e.message.slice(0, 120) : e)); })
+      .then(next);
+  }
+  return next();
+}
+
+function qFilter(rows, c) {
+  var ws = c.words.map(qNorm);
+  function hay(r) { return qNorm([r["사업명"], r["공종"], r["업체명"], r["사업구분"]].join(" ")); }
+  var out = rows.filter(function (r) {
+    if (c.biz.length && c.biz.indexOf(r["사업구분"]) < 0) return false;
+    var a = qAmt(r);
+    if (c.min != null && !(a >= c.min)) return false;
+    if (c.max != null && !(a <= c.max)) return false;
+    if (c.begin && qD8(r) && (qD8(r) < c.begin || qD8(r) > c.end)) return false;
+    return true;
+  });
+  var all = out.filter(function (r) { var h = hay(r); return ws.every(function (w) { return h.indexOf(w) >= 0; }); });
+  c.loose = false;
+  if (!all.length && ws.length > 1) {          // 낱말이 모두 들어간 건이 없으면 하나라도 들어간 건
+    all = out.filter(function (r) { var h = hay(r); return ws.some(function (w) { return h.indexOf(w) >= 0; }); });
+    c.loose = all.length > 0;
+  }
+  var srt = c.sort || (c.ask.amt && !c.ask.day ? "amt" : "new");
+  all.sort(function (a, b) {
+    if (srt === "amt") return qAmt(b) - qAmt(a);
+    if (srt === "amtAsc") return qAmt(a) - qAmt(b);
+    var x = qD8(a), y = qD8(b);
+    return srt === "old" ? (x < y ? -1 : x > y ? 1 : 0) : (x < y ? 1 : x > y ? -1 : 0);
+  });
+  c.sortUsed = srt;
+  return all;
+}
+
+function qAnswer(c, rows, meta) {
+  var h = '', sum = rows.reduce(function (s, r) { return s + qAmt(r); }, 0);
+  var cond = [];
+  cond.push('<b>기간</b> ' + esc(c.period || "") + ' (' + qDay(c.begin) + ' ~ ' + qDay(c.end) + ')');
+  cond.push('<b>종류</b> ' + esc((c.biz.length ? c.biz : meta.biz).join("·")));
+  if (c.words.length) cond.push('<b>찾은 낱말</b> ' + c.words.map(function (w) { return '「' + esc(w) + '」'; }).join(c.loose ? ' 또는 ' : ' + '));
+  if (c.min != null) cond.push('<b>금액</b> ' + qWon(c.min) + ' 이상');
+  if (c.max != null) cond.push('<b>금액</b> ' + qWon(c.max) + ' 이하');
+  if (c.refine) cond.push('<b>앞 결과에서</b> 다시 고름');
+  cond.push('<b>정렬</b> ' + { amt: "금액 큰 순", amtAsc: "금액 작은 순", "new": "최근 계약 순", old: "오래된 순" }[c.sortUsed]);
+  h += '<div class="cond">' + cond.join(' · ') + '</div>';
+  if (c.loose) h += '<div class="msg warn" style="margin:0 0 8px">낱말이 모두 들어간 계약이 없어, 하나라도 들어간 계약을 보여 드립니다.</div>';
+  if (meta.failed && meta.failed.length) h += '<div class="msg warn" style="margin:0 0 8px">불러오지 못한 구간이 있어 그 기간은 빠졌습니다: ' + esc(meta.failed.join(" / ")) + '</div>';
+
+  if (!rows.length) {
+    h += '<div class="lead">조건에 맞는 계약을 찾지 못했습니다.</div>' +
+         '<div style="color:#6b7280">낱말을 줄이거나(예: 학교 이름만), 기간을 넓혀(예: 「최근 2년」) 다시 물어보세요. 기관코드·기관 구분(수요기관/계약기관)도 확인해 보세요.' +
+         (meta.total ? ' 이 기간에 받은 계약은 모두 ' + meta.total + '건입니다.' : '') + '</div>';
+    return h;
+  }
+
+  if (c.group) {
+    var gk = function (r) {
+      if (c.group === "업체") return r["업체명"] || "(업체 없음)";
+      if (c.group === "공종") return r["공종"] || "(공종 없음)";
+      if (c.group === "월") return qD8(r).slice(0, 4) + "." + qD8(r).slice(4, 6);
+      if (c.group === "학교") return qSchool(r["사업명"]);
+      return r["사업구분"] || "";
+    };
+    var gs = {};
+    rows.forEach(function (r) { var k = gk(r); (gs[k] = gs[k] || { n: 0, sum: 0 }); gs[k].n++; gs[k].sum += qAmt(r); });
+    var keys = Object.keys(gs).sort(function (a, b) { return c.group === "월" ? (a < b ? -1 : 1) : gs[b].sum - gs[a].sum; });
+    h += '<div class="lead">' + rows.length + '건, 총계약금액 합계 <b>' + qWon(sum) + '</b>을 ' + esc(c.group) + '별로 묶었습니다.</div>';
+    h += '<div class="scroll" style="max-height:320px"><table><tr><th>' + esc(c.group) + '</th><th>건수</th><th>총계약금액 합계</th></tr>' +
+         keys.map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="num">' + gs[k].n + '</td><td class="num">' + gs[k].sum.toLocaleString() + '</td></tr>'; }).join("") + '</table></div>';
+  } else if (rows.length === 1) {
+    var r = rows[0];
+    var head = c.ask.day && !c.ask.amt ? '계약일은 <span class="big">' + qDay(r["계약일"]) + '</span>' :
+               c.ask.corp ? '업체는 <span class="big">' + esc(r["업체명"] || "(없음)") + '</span>' :
+               c.ask.done ? '준공기한은 <span class="big">' + esc(r["준공기한"] || "(없음)") + '</span>' :
+               '총계약금액은 <span class="big">' + qWon(qAmt(r)) + '</span>';
+    h += '<div class="lead">「' + esc(r["사업명"]) + '」의 ' + head + '입니다.</div>';
+    h += '<dl>' + ["사업구분", "공종", "계약일", "금차계약금액", "총계약금액", "업체명", "대표명", "착공일", "준공기한", "준공일", "차수정보", "계약기관담당자", "통합계약번호"].map(function (k) {
+      var v = r[k]; if (!v) return '';
+      if (MONEY[k]) v = qWon(+String(v).replace(/,/g, "")) + ' (' + (+String(v).replace(/,/g, "")).toLocaleString() + '원)';
+      else if (/일$/.test(k)) v = qDay(v);
+      return '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>';
+    }).join("") + '</dl>';
+  } else {
+    var top = rows[0];
+    var lead = rows.length + '건 찾았습니다. 총계약금액 합계는 <b>' + qWon(sum) + '</b>입니다.';
+    if (c.sortUsed === "amt") lead += ' 가장 큰 계약은 「' + esc(top["사업명"]) + '」 ' + qWon(qAmt(top)) + '입니다.';
+    else if (c.sortUsed === "new") lead += ' 가장 최근 계약은 ' + qDay(top["계약일"]) + ' 「' + esc(top["사업명"]) + '」입니다.';
+    h += '<div class="lead">' + lead + '</div>';
+    h += '<div class="scroll" style="max-height:340px"><table><tr><th>사업명</th><th>계약일</th><th>총계약금액</th><th>업체명</th><th>준공기한</th><th>구분</th></tr>' +
+         rows.slice(0, 100).map(function (r) {
+           return '<tr><td style="white-space:normal;min-width:240px">' + esc(r["사업명"]) + '</td><td>' + qDay(r["계약일"]) + '</td><td class="num">' + qAmt(r).toLocaleString() +
+                  '</td><td>' + esc(r["업체명"]) + '</td><td>' + esc(r["준공기한"]) + '</td><td>' + esc(r["사업구분"]) + '</td></tr>';
+         }).join("") + '</table></div>';
+    if (rows.length > 100) h += '<div class="tip">화면에는 100건까지만 보입니다. 엑셀로 받으면 모두 들어갑니다.</div>';
+  }
+  h += '<div class="acts"><button type="button" data-qx="1">이 결과 공사대장 엑셀로 받기</button></div>';
+  return h;
+}
+
+function qAsk(q) {
+  q = String(q || "").trim();
+  if (!q || QBUSY) return;
+  var key = el("key").value.trim(), inst = el("inst").value.trim();
+  var qa = el("qa");
+  qa.insertAdjacentHTML("beforeend", '<div class="qme">' + esc(q) + '</div>');
+  var box = document.createElement("div"); box.className = "qans"; qa.appendChild(box);
+  if (!key || !inst) {
+    box.innerHTML = '위쪽에 <b>인증키</b>와 <b>기관코드</b>를 먼저 넣어 주세요. 질문은 그 기관의 계약에서 찾습니다.';
+    return;
+  }
+  var c = qParse(q, new Date());
+  var bizSet = Array.prototype.slice.call(document.querySelectorAll(".bz")).filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
+  var bizList = c.biz.length ? c.biz : (bizSet.length ? bizSet : ["공사"]);
+
+  if (c.refine && QLAST) {
+    if (!c.begin) { c.begin = QLAST.c.begin; c.end = QLAST.c.end; c.period = QLAST.c.period; }
+    if (!c.biz.length) c.biz = QLAST.c.biz.slice();
+    if (c.min == null) c.min = QLAST.c.min; if (c.max == null) c.max = QLAST.c.max;
+    c.words = QLAST.c.loose ? c.words : QLAST.c.words.concat(c.words);
+    if (QLAST.c.loose && !c.words.length) c.words = QLAST.c.words.slice();
+    var rr = qFilter(QLAST.base, c);
+    box.innerHTML = qAnswer(c, rr, { biz: QLAST.biz, total: QLAST.base.length, failed: [] });
+    QLAST = { c: c, base: QLAST.base, rows: rr, biz: QLAST.biz };
+    return;
+  }
+  if (!c.begin) { var tt = new Date(); c.begin = tt.getFullYear() + "0101"; c.end = ymd(tt); c.period = "올해 (기간을 말하지 않아 올해로 찾음)"; }
+  var months = qMonths(c.begin, c.end).length;
+  if (months * bizList.length > 72) {
+    box.innerHTML = '기간이 너무 깁니다 (' + months + '개월 × ' + bizList.length + '종류). 조달청은 한 달씩만 조회할 수 있어 오래 걸립니다. 3년 안쪽으로 줄이거나 종류(공사·용역 등)를 말해 주세요.';
+    return;
+  }
+  QBUSY = true; el("qgo").disabled = true;
+  box.innerHTML = '<div class="lead" id="qprog">조회하는 중…</div><details><summary>진행 기록</summary><pre class="log"></pre></details>';
+  QLOG = box.querySelector("pre.log");
+  INST_NAME = orgNameOf(inst) || INST_NAME;
+  qFetch(key, inst, c.begin, c.end, bizList, function (i, n, j) {
+    var p = box.querySelector("#qprog"); if (p) p.textContent = "조달청에서 받는 중… " + j[0].slice(0, 4) + "." + j[0].slice(4, 6) + " " + j[2] + " (" + i + "/" + n + ")";
+    log("[" + j[2] + "] " + j[0] + " ~ " + j[1]);
+  }).then(function (res) {
+    var rows = qFilter(res.rows, c);
+    var logTxt = QLOG ? QLOG.textContent : "";
+    box.innerHTML = qAnswer(c, rows, { biz: bizList, total: res.rows.length, failed: res.failed }) +
+      '<details><summary>진행 기록 (조달청에서 ' + res.fetched + '번 받음, 기억해 둔 달 ' + (months * bizList.length - res.fetched) + '개는 바로 씀)</summary><pre class="log">' + esc(logTxt) + '</pre></details>';
+    QLAST = { c: c, base: res.rows, rows: rows, biz: bizList };
+  }).catch(function (e) {
+    var m = String((e && e.message) || e);
+    box.innerHTML = '<div class="msg err" style="margin:0">조회하지 못했습니다. ' + esc(m) +
+      (/Failed to fetch|NetworkError|Load failed/i.test(m) ? '<br>인터넷 연결(업무망에서는 막혀 있을 수 있음)과 인증키를 확인해 주세요.' : '') + '</div>';
+  }).then(function () {
+    QLOG = null; QBUSY = false; el("qgo").disabled = false;
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+}
+
+el("qgo").onclick = function () { var v = el("q").value; el("q").value = ""; qAsk(v); };
+el("q").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); el("qgo").click(); } });
+Array.prototype.forEach.call(document.querySelectorAll("#qex .chip"), function (ch) {
+  ch.onclick = function () { el("q").value = ch.textContent; el("q").focus(); };
+});
+el("qa").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-qx]"); if (!b || !QLAST) return;
+  var rows = QLAST.rows.slice().sort(function (a, b2) { var x = String(a["계약일"] || ""), y = String(b2["계약일"] || ""); return x < y ? -1 : x > y ? 1 : 0; });
+  b.disabled = true;
+  saveWorkbook(buildExcel(rows), ("공사대장 질문결과 " + (QLAST.c.words.join(" ") || "") + " " + qDay(QLAST.c.begin) + "~" + qDay(QLAST.c.end)).replace(/[\\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim() + ".xlsx")
+    .then(function () { b.disabled = false; }, function (er) { b.disabled = false; alert("파일을 만들지 못했습니다.\n" + er.message); });
+});
 
 /* 만든 사람 표시 */
 (function(){
