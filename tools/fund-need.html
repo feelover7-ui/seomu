@@ -204,6 +204,8 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
       <div style="max-width:170px"><label>준공예정일 끝</label><input type="date" id="re"></div>
       <div style="max-width:200px"><label>계약일을 몇 달 전부터 찾을까</label><input type="number" id="back" value="24" min="3" max="60"></div>
     </div>
+    <label style="margin-top:6px">기금회계 문서 제목 (선택) <span style="color:#8a929c">에듀파인 등에서 「(기금회계) … 요청」 문서 제목 목록을 복사해 붙여 넣으면 그 계약을 기금으로 분류합니다 · 붙여 넣은 제목은 저장하지 않습니다</span></label>
+    <textarea id="titles" rows="4" style="width:100%;padding:8px 10px;border:1px solid #d8d5cd;border-radius:5px;font-size:13px;font-family:inherit" placeholder="(기금회계)공사 집행 및 계약 요청(○○중 본관동 옥상방수공사)&#10;(기금회계)정기안전점검 용역시행(△△초 외 10교 건축물 정기안전점검용역)&#10;…"></textarea>
     <label class="remember" style="margin-top:4px"><input type="checkbox" id="clear2" checked><span>새 시트의 학교회계전출금 표는 비워 두기 <em>학교별 교부액은 직접 채웁니다. 끄면 지난달 값을 그대로 둡니다.</em></span></label>
     <div style="margin-top:14px"><button class="go" id="run">나라장터에서 찾기</button><button class="sub2 hide" id="stop">중지</button></div>
     <div id="logbox" class="hide" style="margin-top:12px">
@@ -456,6 +458,7 @@ el('run').onclick = function () {
   var rs = el('rs').value, re = el('re').value;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(rs) || !/^\d{4}-\d{2}-\d{2}$/.test(re) || rs > re) { alert('준공예정일 범위를 확인해 주세요.'); return; }
   saveKey();
+  var nt = readTitles().length; if (nt) log('기금회계 문서 제목 ' + nt + '건으로 기금을 찾습니다.');
   var back = +el('back').value || 24, from = new Date(+rs.slice(0, 4), +rs.slice(5, 7) - 1 - back, 1);
   var segs = months(ymd(from), re.replace(/-/g, ''));
   STOP = false; el('run').disabled = true; el('stop').classList.remove('hide'); el('log').textContent = ''; el('res').innerHTML = '';
@@ -521,17 +524,19 @@ function build(C, D, rs, re, dErr) {
     var p = prevBy[norm(o.raw)] || PREV.items.filter(function (q) { return q.amt === o.amt && o.amt > 0; })[0];
     if (p) { o.prev = p; used[p.row] = true; if (p.fund) o.fundWhy = '지난달 기금'; }
     if (FS[o.fkey]) o.fundWhy = o.fundWhy || '전에 기금으로 표시';
-    if (o.fundWhy) { o.fund = true; o.name = withFund(o.name, true); }
+    var tw = titleFund(o); if (tw) { o.fundWhy = tw; fundSave(o.fkey, true); }   // 다음 달에도 기억
+    if (o.fundWhy) { o.fund = true; o.on = false; o.name = withFund(o.name, true); }   // 기금회계는 합계에서 뺌
   });
   var Cc = PREV.items.filter(function (p) { return !used[p.row]; }).map(function (p) {
     return { kind: '지난달', raw: p.name, name: p.name, amt: p.amt || 0, date: '', dateText: p.date, sub: '지난달 표 ' + p.date, on: false, carry: true,
              fkey: norm(p.name), fund: p.fund, fundWhy: p.fund ? '지난달 기금' : '' };
   });
+  Cc.forEach(function (o) { var tw = titleFund(o); if (tw) { o.fund = true; o.fundWhy = tw; o.name = withFund(o.name, true); } });
   LIST = { A: A, B: B, C: Cc, rs: rs, re: re, dErr: dErr };
   render();
 }
 function rowHtml(o, i, g) {
-  var flag = (o.fund ? '<span class="tg fund">기금회계' + (o.fundWhy ? ' · ' + esc(o.fundWhy) : '') + ' — 교특회계분만 남기세요</span>' : '') + (o.prev ? '<span class="tg prev">지난달 표에 있음' + (o.prev.amt !== o.amt ? ' (' + (o.prev.amt == null ? '' : o.prev.amt.toLocaleString()) + '→' + o.amt.toLocaleString() + ')' : '') + '</span>' : '');
+  var flag = (o.fund ? '<span class="tg fund">기금회계' + (o.fundWhy ? ' · ' + esc(o.fundWhy) : '') + ' — 합계에서 뺌 (교특회계분이 있으면 금액을 고치고 체크)</span>' : '') + (o.prev ? '<span class="tg prev">지난달 표에 있음' + (o.prev.amt !== o.amt ? ' (' + (o.prev.amt == null ? '' : o.prev.amt.toLocaleString()) + '→' + o.amt.toLocaleString() + ')' : '') + '</span>' : '');
   return '<tr class="' + (o.on ? '' : 'off') + '"><td><input type="checkbox" data-g="' + g + '" data-i="' + i + '"' + (o.on ? ' checked' : '') + '></td>' +
     '<td><span class="k k-' + esc(o.kind) + '">' + esc(o.kind) + '</span></td>' +
     '<td class="nm"><input type="text" class="nmi" data-g="' + g + '" data-i="' + i + '" value="' + esc(o.name) + '"><div class="sub">' + esc(o.sub) + (o.raw !== o.name && !o.carry ? ' · 나라장터: ' + esc(o.raw) : '') + '</div>' + flag + '</td>' +
@@ -539,10 +544,44 @@ function rowHtml(o, i, g) {
     '<td>' + (o.carry ? esc(o.dateText) : dshort(o.date)) + '</td>' +
     '<td style="text-align:center"><input type="checkbox" class="fundcb" title="기금회계 사업이면 체크 (이 PC가 기억해 다음 달에도 표시)" data-g="' + g + '" data-i="' + i + '"' + (o.fund ? ' checked' : '') + '></td></tr>';
 }
+/* 기금회계 문서 제목 → 기금 계약
+   「(기금회계)공사 집행 및 계약 요청(○○중 옥상방수공사)」에서 사업명을 뽑아,
+   - 공사·용역: 사업명이 계약 이름과 같거나 계약 이름을 포함 (감리·폐기물 등 딸린 계약은 그 계약 제목이 있어야 함)
+   - 관급자재: 관급자재 제목이고, 학교가 같고, 괄호 속 물품이 같음 */
+var ACT = /(용역\s*변경\s*시행\s*및\s*변경계약\s*요청|용역\s*(시행|집행)\s*및\s*계약\s*요청|(공사|용역)\s*집행\s*및\s*계약\s*요청|(공사|용역)집행\s*및\s*계약\s*요청|용역시행\s*및\s*계약요청|관급자재\s*(변경\s*)?구매(\s*및\s*계약)?(\s*요청)?|정밀안전점검\s*용역시행|정기안전점검\s*용역시행|설계변경\s*(시행\s*)?및\s*변경계약\s*요청|공사기간\s*연장\s*및\s*(변경계약|계약금액\s*변경)\s*요청|장기계속(공사|용역)\s*집행\s*및\s*계약\s*요청|설계용역\s*집행\s*및\s*계약\s*요청|기술지도\s*계약\s*요청|변경계약\s*요청)/;
+function tnorm(s) {
+  return String(s || '').replace(/서울(?=[가-힣]{1,6}(초|중|고|학교|유))/g, '').replace(/초등학교/g, '초').replace(/중학교/g, '중').replace(/고등학교/g, '고')
+    .replace(/관급자재|구매설치|구매/g, '').replace(/[\s()\[\]（）,·\-_.]/g, '');
+}
+var TITLES = null;
+function readTitles() {
+  TITLES = [];
+  String(el('titles').value || '').split(/\r?\n/).forEach(function (t) {
+    t = t.trim(); if (!t || t.indexOf('기금') < 0) return;
+    var m = ACT.exec(t); if (!m) return;
+    var p = t.slice(m.index + m[0].length).replace(/^[\s\-]+/, '').replace(/^[\[(]/, '').replace(/[\])]\s*$/, '');
+    var prod = (/\(([^()]*)\)\s*$/.exec(p) || [])[1] || '';
+    var sch = (/([가-힣]{1,8}?(초|중|고|유|학교))(?=[\s외(]|$|[가-힣])/.exec(p.replace(/^서울/, '')) || [])[1] || '';
+    TITLES.push({ t: t, p: tnorm(p), gw: /관급자재/.test(t), prod: tnorm(prod), sch: tnorm(sch) });
+  });
+  return TITLES;
+}
+function kindOf(s) { return /용역$/.test(s) ? '용역' : /공사$/.test(s) ? '공사' : ''; }
+function titleFund(o) {
+  if (!TITLES || !TITLES.length) return '';
+  var n = tnorm(o.raw), gw = /관급자재/.test(o.raw);
+  var prod = tnorm((/\(([^()]*)\)[^()]*$/.exec(o.raw) || [])[1] || ''), sch = tnorm((/([가-힣]{1,8}?(초|중|고|유|학교))/.exec(String(o.raw).replace(/^\s*(\[긴급\]\s*)?(서울)?/, '')) || [])[1] || '');
+  for (var i = 0; i < TITLES.length; i++) {
+    var T = TITLES[i];
+    if (gw) { if (T.gw && sch && T.p.indexOf(sch) === 0 && prod && (T.prod ? T.prod === prod : T.p.indexOf(prod) >= 0)) return '기금 문서 제목'; }
+    else if (T.p && (T.p === n || (T.p.indexOf(n) >= 0 && kindOf(T.p) === kindOf(n)))) return '기금 문서 제목';   // 「…공사 감리용역」 제목으로 그 공사를 기금으로 보지 않음
+  }
+  return '';
+}
 function fundLine() {
   if (!LIST) return '';
   var f = LIST.A.concat(LIST.C, LIST.B).filter(function (o) { return o.fund; }), on = f.filter(function (o) { return o.on; });
-  return f.length ? '기금 표시 <b>' + f.length + '건</b> (넣을 줄 ' + on.length + '건 · ' + on.reduce(function (a, o) { return a + (+o.amt || 0); }, 0).toLocaleString() + '천원): ' + f.map(function (o) { return esc(o.name.replace(/^\(기금\)/, '').slice(0, 24)); }).join(', ') : '기금 표시 0건';
+  return f.length ? '기금 <b>' + f.length + '건</b> · ' + f.reduce(function (a, o) { return a + (+o.amt || 0); }, 0).toLocaleString() + '천원은 합계에서 뺐습니다' + (on.length ? ' (교특분으로 넣은 줄 ' + on.length + '건 · ' + on.reduce(function (a, o) { return a + (+o.amt || 0); }, 0).toLocaleString() + '천원)' : '') + ': ' + f.map(function (o) { return esc(o.name.replace(/^\(기금\)/, '').slice(0, 24)); }).join(', ') : '기금 표시 0건';
 }
 function picked() { return LIST.A.concat(LIST.C, LIST.B).filter(function (o) { return o.on; }); }
 function sumNow() { var s = 0; picked().forEach(function (o) { s += +o.amt || 0; }); return s; }
@@ -555,7 +594,7 @@ function render() {
   if (L.dErr) h += '<div class="msg warn"><b>관급자재(납품요구)를 받지 못했습니다:</b> ' + esc(L.dErr) +
        '<br>인증키가 「조달청_나라장터쇼핑몰 품목정보 서비스」에 등록되지 않았다면 <a href="https://www.data.go.kr/data/15129471/openapi.do" target="_blank" rel="noopener">공공데이터포털에서 활용신청</a>하세요 (같은 인증키로 됩니다).</div>';
   var fl = L.A.concat(L.C, L.B).filter(function (o) { return o.fund; });
-  h += '<div class="msg info">왼쪽 칸을 체크한 줄만 넣습니다. 이름·금액은 고칠 수 있습니다.<br><b>기금회계</b>는 나라장터로 구분되지 않아 맨 오른쪽 「기금」 칸으로 표시합니다. 체크하면 이름 앞에 「(기금)」이 붙고, <b>이 PC가 기억해 다음 달에도 자동으로 표시</b>합니다. 지난달 표의 (기금)도 이어받습니다. 금액은 교특회계분만 남기세요.' +
+  h += '<div class="msg info">왼쪽 칸을 체크한 줄만 넣습니다. 이름·금액은 고칠 수 있습니다.<br><b>기금회계는 합계에서 뺍니다.</b> 나라장터로는 구분되지 않아 ① 위에 붙여 넣은 기금회계 문서 제목과 이름이 같은 계약, ② 지난달 표의 (기금), ③ 맨 오른쪽 「기금」 칸으로 표시한 계약(이 PC가 기억)을 기금으로 봅니다. 기금 제목이 없는 계약은 교특회계로 봅니다. 교특회계분이 섞인 기금 건은 금액을 교특분으로 고치고 왼쪽 칸을 체크하세요.' +
        '<br><span id="fundSum">' + fundLine() + '</span></div>';
   h += '<button class="go" id="save">「' + esc(el('ym').value.replace(/^20(\d\d)-0?(\d+)$/, '$1년 $2월')) + '」 시트를 붙여 내려받기</button></div>';
   var tb = function (title, list, g, note) {
@@ -575,8 +614,9 @@ el('res').addEventListener('change', function (e) {
     o.fund = e.target.checked; o.fundWhy = o.fund ? '직접 표시' : '';
     o.name = withFund(o.name, o.fund); fundSave(o.fkey || norm(o.raw), o.fund);
     var tr = e.target.closest('tr'), nmi = tr.querySelector('.nmi'); if (nmi) nmi.value = o.name;
+    if (o.fund) { o.on = false; tr.querySelector('input[type=checkbox]:not(.fundcb)').checked = false; tr.classList.add('off'); }   // 기금은 합계에서 뺌
     var td = tr.querySelector('td.nm'), old = td.querySelector('.tg.fund'); if (old) old.remove();
-    if (o.fund) td.insertAdjacentHTML('beforeend', '<span class="tg fund">기금회계 · 직접 표시 — 교특회계분만 남기세요</span>');
+    if (o.fund) td.insertAdjacentHTML('beforeend', '<span class="tg fund">기금회계 · 직접 표시 — 합계에서 뺌 (교특회계분이 있으면 금액을 고치고 체크)</span>');
   }
   else if (e.target.type === 'checkbox') { o.on = e.target.checked; e.target.closest('tr').classList.toggle('off', !o.on); }
   else if (e.target.classList.contains('amt')) o.amt = Math.round(+String(e.target.value).replace(/,/g, '') || 0);
@@ -620,7 +660,7 @@ function save() {
       ws.getCell(r, L.amtCol).value = +o.amt || 0;
       ws.getCell(r, L.dateCol).value = o.carry ? o.dateText : dshort(o.date);
     });
-    var newSum = first + rows.length, sumAddr = col(L.amtCol) + newSum;
+    var newSum = first + Math.max(rows.length, 1), sumAddr = col(L.amtCol) + newSum;
     if (newSum !== oldSum) { ws.getCell(oldSum, L.amtCol).style = copyStyle(src.getCell(tplRow, L.amtCol).style); }
     ws.getCell(newSum, L.amtCol).value = { formula: 'SUM(' + col(L.amtCol) + first + ':' + col(L.amtCol) + (newSum - 1) + ')' };
     ws.getCell(newSum, L.amtCol).style = sumStyle;
