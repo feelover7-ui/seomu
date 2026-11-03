@@ -971,8 +971,9 @@ function fillTemplate(buf, rows, L, meta){
                         full: p.full.length, fn: fn });
     }
 
-    // 요약 시트에 성명이 비어 있으면 채워 줍니다
+    // 요약 시트 성명을 본표(일반여비) 명단에 맞춥니다 — 비어 있거나 예전 사람 이름이면 고칩니다
     // 요약 시트 : 이름이 부서마다 달라서, 본표가 아닌 나머지 중에서 찾습니다
+    SUMFIX = []; SUMMISS = [];
     var w2 = null;
     wb.worksheets.forEach(function(x){
       if (x.name === L.sheet) return;
@@ -1008,18 +1009,24 @@ function fillTemplate(buf, rows, L, meta){
       var byNo = {};
       rows.forEach(function(p){ byNo[p.no] = p; });
 
-      var maxRow = w2.actualRowCount || w2.rowCount || 200;
-      for (var r2 = 1; r2 <= maxRow; r2++){
+      var maxRow = w2.actualRowCount || w2.rowCount || 200, seen = {};
+      for (var r2 = (sHead || 0) + 1; r2 <= maxRow; r2++){
         var noCell = sNo ? w2.getCell(r2, sNo).value : null;
         var no = (typeof noCell === "number") ? noCell
                : (/^\d+$/.test(String(noCell||"").trim()) ? +String(noCell).trim() : null);
         if (no == null) continue;
         var p2 = byNo[no];
         if (!p2) continue;
+        seen[no] = true;
 
         if (sName){
           var nc = w2.getCell(r2, sName);
-          if (!nc.value && p2.name) nc.value = p2.name;
+          var isF = nc.value && typeof nc.value === "object" && nc.value.formula;   // 본표를 가리키는 수식이면 그대로
+          var old = isF ? "" : String(nc.value == null ? "" : (nc.value.richText ? nc.value.richText.map(function(t){ return t.text; }).join("") : nc.value)).trim();
+          if (!isF && p2.name && old !== p2.name){
+            if (old) SUMFIX.push(no + "번  " + old + " → " + p2.name);
+            nc.value = p2.name;
+          }
         }
         function put(col, v){
           if (!col) return;
@@ -1030,6 +1037,7 @@ function fillTemplate(buf, rows, L, meta){
         put(sD1, p2.half.length);
         put(sD2, p2.full.length);
       }
+      if (sNo) rows.forEach(function(p){ if (p.name && !seen[p.no]) SUMMISS.push(p.no + "번 " + p.name); });
     }
 
     return wb;
@@ -1089,6 +1097,7 @@ var T1 = null, ROSTER = null, ROWS = null, META = null;
 var TPL = null, TPL_BUF = null;   // 지난달 파일(틀)과 그 원본 바이트
 var T1_BUF = null, WORK_BUF = null, WORK_NAME = "";   // 대상목록 / 근무상황부 원본
 var TPL_WB = null, TPL_SHEET = "";                    // 지난달 파일과 고른 시트
+var SUMFIX = [], SUMMISS = [];                        // 요약 시트에서 고친 이름 · 요약에 줄이 없는 사람
 var OVERFLOW = [];                                    // 칸이 모자란 사람
 var DZ1 = el("dz1").innerHTML, DZ2 = el("dz2").innerHTML, DZ3 = el("dz3").innerHTML;
 
@@ -1308,6 +1317,10 @@ function render(){
       document.body.appendChild(a); a.click();
       setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
       b.disabled = false; b.textContent = "엑셀로 내려받기";
+      var sumMsg = "";
+      if (SUMFIX.length) sumMsg += "요약 시트 성명을 본표 명단에 맞춰 고쳤습니다 (" + SUMFIX.length + "명)\n\n" + SUMFIX.join("\n") + "\n\n";
+      if (SUMMISS.length) sumMsg += "요약 시트에 줄이 없어 넣지 못한 사람이 있습니다. 요약 시트에 줄을 늘려 직접 넣어 주세요.\n\n" + SUMMISS.join("\n");
+      if (sumMsg) alert(sumMsg.trim());
       if (OVERFLOW.length){
         alert("칸이 모자라 다 담지 못한 사람이 " + OVERFLOW.length + "명 있습니다.\n\n" +
               OVERFLOW.map(function(x){

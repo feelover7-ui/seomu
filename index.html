@@ -444,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.3 · 2026.11.03 08:44 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.4 · 2026.11.03 15:11 수정</a></div>
 </aside>
 
 <div class="main">
@@ -503,6 +503,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.4</b><span>2026.11.03 15:11</span></div>
+          <ul>
+            <li>관내출장여비: 지난달 파일로 만들 때 <b>요약 시트 성명이 예전 사람으로 남던 문제</b> 고침 — 요약 시트 성명을 일반여비(본표) 명단에 번호대로 맞추고, 바꾼 이름과 요약 시트에 줄이 없는 사람을 알려 줌</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.13.3</b><span>2026.11.03 08:44</span></div>
           <ul>
@@ -1436,8 +1442,8 @@
   });
 
   (function () {
-    var VERSION = '1.13.3';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.03 08:44';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.4';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.03 15:11';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
