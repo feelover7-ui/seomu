@@ -831,9 +831,10 @@ function copySheet(srcWs, wb, name){
 
   var ws = wb.addWorksheet(nm, { properties: props, views: views });
 
-  srcWs.columns.forEach(function (col, j) {
-    if (col && col.width) ws.getColumn(j+1).width = col.width;
-  });
+  for (var cj = 1; cj <= (srcWs.columnCount || 0); cj++) {
+    var cw = srcWs.getColumn(cj).width;
+    if (cw) ws.getColumn(cj).width = cw;
+  }
 
   srcWs.eachRow({ includeEmpty:true }, function (row, rn) {
     var dst = ws.getRow(rn);
@@ -857,7 +858,33 @@ function copySheet(srcWs, wb, name){
     try { ws.mergeCells(m); } catch (e) {}
   });
   try { if (srcWs.pageSetup) ws.pageSetup = JSON.parse(JSON.stringify(srcWs.pageSetup)); } catch (e) {}
+  fitPrint(ws);
   return ws;
+}
+
+/* 붙인 시트 인쇄 설정 : 에듀파인·나이스에서 받은 파일은 인쇄 설정이 없어 옆으로 쪼개져 나옵니다.
+   A4 한 장 너비에 맞추고(세로 장 수는 자동), 넓으면 가로로, 머리글 줄은 장마다 되풀이합니다. */
+function fitPrint(ws){
+  var nc = ws.columnCount || 1, nr = ws.rowCount || 1, tw = 0;
+  for (var c = 1; c <= nc; c++) tw += ws.getColumn(c).width || 9;
+  // 머리글 : 위에서부터 첫 자료 줄(여비번호·번호·날짜처럼 숫자로 시작) 전까지, 최대 5줄
+  var head = 0;
+  for (var r = 1; r <= Math.min(nr, 8); r++){
+    var v = ws.getCell(r, 1).value;
+    if (v && typeof v === "object" && v.result !== undefined) v = v.result;
+    var t = String(v == null ? "" : v).trim();
+    if (typeof v === "number" || v instanceof Date || /^\d/.test(t)) break;
+    head = r;
+  }
+  if (head > 5) head = 0;
+  var ps = ws.pageSetup || {};
+  ps.paperSize = 9;
+  ps.orientation = tw > 95 ? "landscape" : "portrait";
+  ps.fitToPage = true; ps.fitToWidth = 1; ps.fitToHeight = 0;
+  ps.horizontalCentered = true;
+  ps.margins = { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3 };
+  if (head) ps.printTitlesRow = "1:" + head;
+  ws.pageSetup = ps;
 }
 
 /* 넣어 둔 파일들의 시트를 결과에 붙입니다 */
