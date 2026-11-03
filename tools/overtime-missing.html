@@ -76,6 +76,11 @@
   table.lst thead th .ar { font-size:10px; color:#3a6ea5; }
   table.lst td.nm { text-align:left; }
   table.lst tr.hol td { background:#f5f9ff; }
+  table.lst thead th.fpg { background:#e9f3ea; }
+  table.lst td.fpt { color:#4b5563; font-family:Consolas,monospace; }
+  table.lst td.ot { font-family:Consolas,monospace; color:#0b7a3b; background:#f3faf4; }
+  .cal .mh .wdc { font-weight:400; font-size:12px; color:#0b7a3b; margin-left:6px; }
+  .cal .mh .wdc b { font-weight:700; }
   /* 나이스 기준 달력 */
   .cal { display:inline-grid; grid-template-columns:repeat(7, 74px); gap:4px; margin:8px 14px 4px 0; vertical-align:top; }
   .cal .mh { grid-column:1 / -1; font-weight:700; font-size:13.5px; margin-bottom:2px; }
@@ -758,7 +763,8 @@ function calCard() {
   mon.forEach(function (m) {
     var y = +m.slice(0, 4), mo = +m.slice(5, 7), last = new Date(y, mo, 0).getDate();
     var first = (new Date(y, mo - 1, 1).getDay() + 6) % 7;     // 월요일 = 0
-    h += '<div class="cal"><div class="mh">' + y + '년 ' + mo + '월</div>';
+    var wdc = workDays(m);
+    h += '<div class="cal"><div class="mh">' + y + '년 ' + mo + '월 <span class="wdc">근무일수 <b>' + wdc.work + '일</b> · 휴일 ' + wdc.hol + '일</span></div>';
     WD.forEach(function (w) { h += '<div class="wh' + (w === "일" ? " sun" : w === "토" ? " sat" : "") + '">' + w + '</div>'; });
     for (var b = 0; b < first; b++) h += '<div class="d blank"></div>';
     for (var d = 1; d <= last; d++) {
@@ -776,6 +782,7 @@ function calCard() {
   });
   var byCal = N1.rows.filter(function (x) { return x.holCal; });
   h += '<div class="calnote">' +
+       '<b>근무일수</b>는 달력에서 평일(흰 날)을 센 것입니다. 날짜를 눌러 휴일↔평일을 바꾸면 함께 바뀝니다.<br>' +
        (pubs.length ? '<b>평일 중 휴일로 본 날:</b> ' + pubs.join(", ") + '<br>' : '평일 중 휴일로 본 날은 없습니다.<br>') +
        (byCal.length ? '이 날 <b>평일로 신청된 ' + byCal.length + '건</b>도 휴일처럼(그날 지문 전체) 처리합니다. 목록에 「·휴(달력)」으로 보입니다.<br>' : '') +
        (odd.length ? '<span style="background:#fff8de;padding:1px 5px;border-radius:3px">노란 날</span>은 한 사람만 휴일로 신청한 평일입니다(' + odd.join(", ") + '). 실제 휴일이면 눌러서 바꾸세요.<br>' : '') +
@@ -810,7 +817,7 @@ function attach(neis, fp) {
   neis.rows.forEach(function (x) {
     x.fSt = ""; x.fEn = ""; x.fState = ""; x.fCnt = 0; x.fOnce = false;
     x.fAll = ""; x.fOut = 0; x.fId = ""; x.rule = ""; x.fUsed = []; x.why = "";
-    if (!x.empty) return;
+    x.dIn = ""; x.dOut = ""; x.ot = null;
     if (!fp) return;
 
     var rec = fp.map[bareName(x.name) + "\u0001" + x.date];
@@ -827,6 +834,8 @@ function attach(neis, fp) {
     list.sort(function (a, b) { return a.t < b.t ? -1 : 1; });
 
     x.fAll = list.map(function (a) { return a.t; }).join(" ");
+    x.dIn = list[0].t;                                          // 그날 처음 찍은 지문
+    x.dOut = list.length > 1 ? list[list.length - 1].t : "";   // 그날 마지막 지문
 
     /* 어느 지문을 쓸지 고릅니다.
        휴일  : 하루 전체가 초과근무이므로 전부 사용
@@ -876,7 +885,37 @@ function attach(neis, fp) {
       x.fEn = inRange[inRange.length - 1].t;
     }
     x.fState = "찾음";
+    x.ot = calcOT(x);
   });
+}
+
+/* 지문으로 본 초과근무시간(분) — 나이스 「시간합」과 같은 방식(공제 전)
+   휴일      : 첫 지문 ~ 마지막 지문
+   평일 저녁 : 근무 종료시각(또는 그 뒤 첫 지문) ~ 마지막 지문
+   평일 아침 : 첫 지문 ~ 근무 시작시각
+   모두 신청시간 안으로 자릅니다. */
+function calcOT(x) {
+  var pS = toMin(x.pSt), pE = toMin(x.pEn), aS = toMin(x.aSt), aE = toMin(x.aEn);
+  var st = null, en = null;
+  if (x.hol) {
+    if (x.fOnce || !x.fSt) return null;
+    st = toMin(x.fSt); en = toMin(x.fEn);
+  } else {
+    var morning = (aE !== null && pS !== null) ? (aE <= pS) : false;
+    if (morning) { st = toMin(x.fOnce ? x.fEn : x.fSt); en = pS; }
+    else { st = x.fOnce || !x.fSt ? (pE !== null ? pE : aS) : toMin(x.fSt); en = toMin(x.fEn); }
+  }
+  if (st === null || en === null) return null;
+  if (aS !== null && aE !== null && aE > aS) { st = Math.max(st, aS); en = Math.min(en, aE); }
+  return Math.max(0, en - st);
+}
+function hm(min) { return min == null ? "" : pad(Math.floor(min / 60)) + ":" + pad(min % 60); }
+
+/* 달력에서 평일(근무일)·휴일 수 */
+function workDays(ym) {
+  var y = +ym.slice(0, 4), mo = +ym.slice(5, 7), last = new Date(y, mo, 0).getDate(), w = 0, h = 0;
+  for (var d = 1; d <= last; d++) { if (isHolDay(y + "-" + pad(mo) + "-" + pad(d))) h++; else w++; }
+  return { work: w, hol: h, days: last };
 }
 
 /* ===================== 화면 ===================== */
@@ -1065,6 +1104,7 @@ function render() {
        '<span><i style="background:#e8f4ff"></i>지문에서 찾은 시각 · 나이스에 넣을 값</span>' +
        '<span><i style="background:#f5f9ff"></i>휴일 신청 건</span>' +
        '<span><i style="background:#f7f8fa"></i>이미 들어 있는 값</span>' +
+       '<span><i style="background:#f3faf4"></i>지문 초과시간 = 평일은 근무 종료 후(아침은 시작 전), 휴일은 첫~마지막 지문 · 신청시간 안 · 1시간 공제 전</span>' +
        '<span style="font-family:Consolas,monospace"><b style="color:#0b4c8c;background:#dceeff;padding:1px 5px;border-radius:3px">21:34</b> 넣을 값&nbsp;&nbsp;<span style="color:#5b636c">13:20</span> 중간 시각&nbsp;&nbsp;<span style="color:#9aa4b0">08:15</span> 안 쓴 지문</span>' +
        '</div></div>';
 
@@ -1241,7 +1281,10 @@ var SORTKEY = {
   aEn:  function (x) { return x.aEn || ""; },
   vSt:  function (x) { return (x.needSt ? x.fSt : x.rSt) || "~"; },
   vEn:  function (x) { return (x.needEn ? x.fEn : x.rEn) || "~"; },
-  sum:  function (x) { return x.rSum || ""; }
+  sum:  function (x) { return x.rSum || ""; },
+  dIn:  function (x) { return x.dIn || "~"; },
+  dOut: function (x) { return x.dOut || "~"; },
+  ot:   function (x) { return x.ot == null ? -1 : x.ot; }
 };
 
 function sortRows(rows, tid) {
@@ -1283,12 +1326,15 @@ function listTable(rows, onlyMiss, tid) {
           '<th class="grp" colspan="2">신청시간</th>' +
           '<th class="grp" colspan="2">' + (onlyMiss ? "나이스에 넣을 시각" : "실제초과 근무시간") + '</th>' +
           (onlyMiss ? '' : th("시간합", "sum", tid, 'rowspan="2" class="grp"')) +
+          '<th class="grp fpg" colspan="3">지문</th>' +
           '<th rowspan="2" style="font-weight:400;color:#6b7280">쓴 지문<br>' +
           '<span style="font-size:10.5px">범위</span></th>' +
           '<th rowspan="2">그날 찍힌 지문</th></tr>' +
           '<tr>' +
           th("시작", "aSt", tid, 'class="grp"') + th("종료", "aEn", tid, 'class="grp"') +
           th("시작", "vSt", tid, 'class="grp"') + th("종료", "vEn", tid, 'class="grp"') +
+          th("처음", "dIn", tid, 'class="grp fpg"') + th("마지막", "dOut", tid, 'class="grp fpg"') +
+          th("초과시간", "ot", tid, 'class="grp fpg" title="지문으로 계산한 초과근무시간 (신청시간 안, 공제 전)"') +
           '</tr></thead><tbody>';
 
   rows = sortRows(rows, tid);
@@ -1307,7 +1353,7 @@ function listTable(rows, onlyMiss, tid) {
     if (!x.empty) {
       h += '<td class="t">' + esc(x.rSt) + '</td><td class="t">' + esc(x.rEn) + '</td>';
       if (!onlyMiss) h += '<td class="t">' + esc(x.rSum) + '</td>';
-      h += '<td></td><td class="fp">-</td>';
+      h += fpTimes(x) + '<td></td><td class="fp">' + esc(x.fAll || "-") + '</td>';
     } else {
       if (x.fState !== "찾음" && x.needSt && x.needEn) {
         h += '<td class="none" colspan="2">' + esc(x.why || "넣을 값을 찾지 못했습니다") + '</td>';
@@ -1318,6 +1364,7 @@ function listTable(rows, onlyMiss, tid) {
                        : '<td class="t done">' + esc(x.rEn) + '</td>');
       }
       if (!onlyMiss) h += '<td class="bad">' + esc(x.rSum || "__:__") + '</td>';
+      h += fpTimes(x);
       // 넣을 값을 못 찾은 줄에서는 비워 둡니다 (사유가 왼쪽 칸에 이미 나옵니다)
       h += '<td style="font-size:11.5px;color:#6b7280;white-space:normal;max-width:130px">' +
            (x.fState === "찾음" ? esc(x.rule) : "") + '</td>' + fpCell(x);
@@ -1327,6 +1374,12 @@ function listTable(rows, onlyMiss, tid) {
   return h + '</tbody></table></div>';
 }
 
+function fpTimes(x) {
+  var otTitle = x.ot == null ? "" : (x.hol ? "휴일: 첫 지문~마지막 지문" : "평일: 근무시간 밖") + " · 신청시간 " + (x.aSt || "") + "~" + (x.aEn || "") + " 안";
+  return '<td class="t fpt">' + esc(x.dIn || "-") + '</td>' +
+         '<td class="t fpt">' + esc(x.dOut || "-") + '</td>' +
+         '<td class="t ot" title="' + esc(otTitle) + '">' + (x.ot == null ? '<span style="color:#9aa4b0">-</span>' : '<b>' + hm(x.ot) + '</b>') + '</td>';
+}
 function fpCell(x) {
   if (!x.fAll) return '<td class="fp">-</td>';
   var used = {};
@@ -1370,8 +1423,8 @@ function saveExcel(todo, none) {
     var ws = wb.addWorksheet(name, { views:[{ state:"frozen", ySplit:1 }] });
     var head = ["순번","부서명","직급","성명","일자","요일","휴일","종별",
                 "근무 시작","근무 종료","신청 시작","신청 종료",
-                "넣을 시작","넣을 종료","쓴 지문 범위","비고","그날 지문 전체"];
-    var wid  = [6, 18, 8, 16, 12, 6, 6, 12, 10, 10, 10, 10, 12, 12, 18, 26, 34];
+                "넣을 시작","넣을 종료","지문 처음","지문 마지막","초과시간(지문)","쓴 지문 범위","비고","그날 지문 전체"];
+    var wid  = [6, 18, 8, 16, 12, 6, 6, 12, 10, 10, 10, 10, 12, 12, 10, 10, 13, 18, 26, 34];
     head.forEach(function (h, i) {
       var c = ws.getCell(1, i+1);
       c.value = h;
@@ -1385,12 +1438,14 @@ function saveExcel(todo, none) {
       [x.no, x.dept, x.rank, x.name, x.date, x.wd, x.holCal ? "O(달력)" : x.hol ? "O" : "", x.kind,
        x.pSt, x.pEn, x.aSt, x.aEn,
        x.needSt ? x.fSt : x.rSt, x.needEn ? x.fEn : x.rEn,
+       x.dIn, x.dOut, hm(x.ot),
        (x.fState === "찾음" ? x.rule : ""), memoOf(x), x.fAll].forEach(function (v, k) {
         var c = r.getCell(k+1);
         c.value = (v === "" || v == null) ? null : v;
-        c.alignment = { horizontal: (k===1||k===3||k>=14) ? "left" : "center",
-                        vertical:"middle", wrapText: k>=14 };
-        if (k >= 14) c.font = { size: 10, color: { argb:"FF6B7280" } };
+        c.alignment = { horizontal: (k===1||k===3||k>=17) ? "left" : "center",
+                        vertical:"middle", wrapText: k>=17 };
+        if (k >= 17) c.font = { size: 10, color: { argb:"FF6B7280" } };
+        if (k === 16 && v) c.font = { bold:true, color:{ argb:"FF0B7A3B" } };
         c.border = { top:t, left:t, bottom:t, right:t };
         if ((k === 12 && x.needSt) || (k === 13 && x.needEn)) {
           if (v && blue) {
@@ -1419,8 +1474,8 @@ function saveExcel(todo, none) {
   /* 전체 목록도 참고로 한 장 */
   var ws3 = wb.addWorksheet("전체 목록", { views:[{ state:"frozen", ySplit:1 }] });
   var h3 = ["순번","성명","일자","요일","휴일","종별","신청 시작","신청 종료",
-            "실제 시작","실제 종료","시간합","상태"];
-  var w3 = [6, 16, 12, 6, 6, 12, 10, 10, 12, 12, 10, 18];
+            "실제 시작","실제 종료","시간합","지문 처음","지문 마지막","초과시간(지문)","상태"];
+  var w3 = [6, 16, 12, 6, 6, 12, 10, 10, 12, 12, 10, 10, 10, 13, 18];
   h3.forEach(function (h, i) {
     var c = ws3.getCell(1, i+1);
     c.value = h;
@@ -1434,10 +1489,11 @@ function saveExcel(todo, none) {
     var st = x.empty ? x.fSt : x.rSt, en = x.empty ? x.fEn : x.rEn;
     var stat = !x.empty ? "" : (x.fState === "찾음" ? "지문에서 찾음" : "지문 없음");
     [x.no, x.name, x.date, x.wd, x.holCal ? "O(달력)" : x.hol ? "O" : "", x.kind, x.aSt, x.aEn,
-     st, en, x.rSum, stat].forEach(function (v, k) {
+     st, en, x.rSum, x.dIn, x.dOut, hm(x.ot), stat].forEach(function (v, k) {
       var c = r.getCell(k+1);
       c.value = (v === "" || v == null) ? null : v;
-      c.alignment = { horizontal: (k===1||k===11) ? "left" : "center", vertical:"middle" };
+      c.alignment = { horizontal: (k===1||k===14) ? "left" : "center", vertical:"middle" };
+      if (k === 13 && v) c.font = { bold:true, color:{ argb:"FF0B7A3B" } };
       c.border = { top:t, left:t, bottom:t, right:t };
       if (x.empty) {
         if (k === 8 || k === 9) {
@@ -1453,6 +1509,26 @@ function saveExcel(todo, none) {
       } else if (x.hol) {
         c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FFF5F9FF" } };
       }
+    });
+  });
+
+  /* 근무일수 (달력의 평일 수) */
+  var ws4 = wb.addWorksheet("근무일수");
+  ["월","근무일수(평일)","휴일 수","전체 일수","평일 중 휴일로 본 날"].forEach(function (h, i) {
+    var c = ws4.getCell(1, i+1); c.value = h;
+    c.fill = { type:"pattern", pattern:"solid", fgColor:{ argb:"FF2E5C8A" } };
+    c.font = { color:{ argb:"FFFFFFFF" }, bold:true, size:10 };
+    c.alignment = { horizontal:"center", vertical:"middle" };
+    ws4.getColumn(i+1).width = [10, 15, 10, 10, 40][i];
+  });
+  (N1.months || []).forEach(function (m, i) {
+    var w = workDays(m), y = +m.slice(0, 4), mo = +m.slice(5, 7), pubs = [];
+    for (var d = 1; d <= w.days; d++) { var ds = m + "-" + pad(d); if (isHolDay(ds) && !isWeekend(ds)) pubs.push(mo + "." + d + ".(" + weekday(ds) + ")"); }
+    [y + "." + pad(mo), w.work, w.hol, w.days, pubs.join(", ")].forEach(function (v, k) {
+      var c = ws4.getCell(i+2, k+1); c.value = v === "" ? null : v;
+      c.alignment = { horizontal: k === 4 ? "left" : "center", vertical:"middle" };
+      c.border = { top:t, left:t, bottom:t, right:t };
+      if (k === 1) c.font = { bold:true, color:{ argb:"FF0B7A3B" } };
     });
   });
 

@@ -444,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.5 · 2026.11.03 15:23 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.6 · 2026.11.04 08:17 수정</a></div>
 </aside>
 
 <div class="main">
@@ -503,6 +503,13 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.6</b><span>2026.11.04 08:17</span></div>
+          <ul>
+            <li>초과근무 미입력 찾기: 목록에 <b>지문 처음·마지막 시각과 지문으로 계산한 초과시간</b> 칸 추가 (평일은 근무 종료 후·아침은 시작 전, 휴일은 첫~마지막 지문, 신청시간 안, 1시간 공제 전). 엑셀에도 함께 나옴</li>
+            <li>초과근무 미입력 찾기: 나이스 기준 달력에 <b>근무일수(평일 수)·휴일 수</b> 표시 — 날짜를 눌러 휴일↔평일을 바꾸면 함께 바뀜. 엑셀에 「근무일수」 시트 추가</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.13.5</b><span>2026.11.03 15:23</span></div>
           <ul>
@@ -1448,8 +1455,8 @@
   });
 
   (function () {
-    var VERSION = '1.13.5';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.03 15:23';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.6';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.04 08:17';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
