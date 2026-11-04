@@ -1079,12 +1079,70 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (!sheets.length) { tplMsg(f.name + ' — 「이름」「과정명」 칸이 있는 시트를 찾지 못했습니다.'); return; }
       tpl = { name: f.name, buf: buf, sheets: sheets };
       faceRender();                                   // 교육기관 목록을 서식에서 다시 읽음
-      var known = sheets.filter(function (s) { return s.key; });
-      var unknown = sheets.filter(function (s) { return !s.key; });
-      $('tplName').innerHTML = esc(f.name) + '<span class="sub">교육 시트 ' + known.length + '개를 찾았습니다' +
-        (unknown.length ? ' · 교육을 모르는 시트: ' + unknown.map(function (s) { return esc(s.name); }).join(', ') : '') + '</span>';
+      sheets.forEach(function (s) { if (!s.key) { s.unknown = true; applySheetMap(s); } });
+      tplInfo();
       $('tplLoaded').classList.remove('hidden'); $('dropTpl').classList.add('hidden');
       refresh();
+    });
+  }
+  /* 시트 이름으로 교육을 모르는 시트: 직접 고름 (이 PC가 시트 이름별로 기억)
+     - 목록의 법정교육 중 하나
+     - 「이 시트 이름이 들어간 이수증」: 새 교육(예: 마약류 예방교육) — 연수 과정에 시트 이름의 핵심 낱말이 들어간 이수증을 이 시트에
+     - 쓰지 않음 */
+  var sheetMap = {};
+  try { sheetMap = JSON.parse(localStorage.getItem('edu-sheetmap-v1') || '{}') || {}; } catch (e) { sheetMap = {}; }
+  function saveSheetMap() { try { localStorage.setItem('edu-sheetmap-v1', JSON.stringify(sheetMap)); } catch (e) {} }
+  var CUSTOM = [];   // 시트 이름으로 만든 새 교육 { k, label, re }
+  function coreWord(name) {
+    var t = String(name).replace(/^\s*\d+\s*[.)]?\s*/, '').replace(/[(（\[].*?[)）\]]/g, '')
+      .replace(/(법정\s*)?(의무\s*)?(교육|연수)|이수\s*현황|현황|명단|예방/g, '').replace(/\s+/g, '');
+    return t.length >= 2 ? t : norm(name);
+  }
+  function customRule(sheetName) {
+    var k = 'x:' + norm(sheetName), r = RULE[k];
+    if (!r) {
+      var w = coreWord(sheetName);
+      r = { k: k, label: String(sheetName).trim(), re: new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), custom: true, word: w };
+      RULE[k] = r; CUSTOM.push(r);
+    }
+    return r;
+  }
+  function applySheetMap(s) {
+    var v = sheetMap[s.name];
+    s.key = null; s.skip = false;
+    if (!v) return;
+    if (v === 'skip') { s.skip = true; return; }
+    if (v === 'custom') { s.key = customRule(s.name).k; return; }
+    if (RULE[v]) s.key = v;
+  }
+  function customKeys(c) {
+    var t = norm(c.course + ' ' + c.no);
+    return CUSTOM.filter(function (r) { return r.re.test(t); }).map(function (r) { return r.k; });
+  }
+  function tplInfo() {
+    var sheets = tpl.sheets, known = sheets.filter(function (s) { return s.key; }), unk = sheets.filter(function (s) { return s.unknown; });
+    var h = esc(tpl.name) + '<span class="sub">교육 시트 ' + known.length + '개를 찾았습니다' +
+      (unk.filter(function (s) { return !s.key && !s.skip; }).length ? ' · <b style="color:var(--err)">시트 이름으로 교육을 모르는 시트가 있습니다 — 아래에서 골라 주세요</b>' : '') + '</span>';
+    if (unk.length) {
+      h += '<span class="sub sheetPick">' + unk.map(function (s) {
+        var v = sheetMap[s.name] || '';
+        var opts = '<option value="">어느 교육인지 고르기…</option>' +
+          '<option value="custom"' + (v === 'custom' ? ' selected' : '') + '>새 교육: 과정명에 「' + esc(coreWord(s.name)) + '」이 들어간 이수증</option>' +
+          EDU.RULES.map(function (r) { return '<option value="' + r.k + '"' + (v === r.k ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') +
+          '<option value="skip"' + (v === 'skip' ? ' selected' : '') + '>쓰지 않음 (교육 시트 아님)</option>';
+        return '<label style="display:block;margin-top:4px">「' + esc(s.name) + '」 시트 → <select data-sheetmap="' + esc(s.name) + '">' + opts + '</select></label>';
+      }).join('') + '</span>';
+    }
+    $('tplName').innerHTML = h;
+    Array.prototype.forEach.call($('tplName').querySelectorAll('select[data-sheetmap]'), function (sel) {
+      sel.onclick = function (e) { e.stopPropagation(); };
+      sel.onchange = function () {
+        var nm = sel.getAttribute('data-sheetmap');
+        if (sel.value) sheetMap[nm] = sel.value; else delete sheetMap[nm];
+        saveSheetMap();
+        tpl.sheets.forEach(function (s) { if (s.unknown && s.name === nm) applySheetMap(s); });
+        tplInfo(); refresh();
+      };
     });
   }
   function tplMsg(m) { tpl = null; $('tplLoaded').classList.remove('hidden'); $('dropTpl').classList.remove('hidden'); $('tplName').innerHTML = '<span style="color:var(--err)">' + esc(m) + '</span>'; refresh(); }
@@ -1419,7 +1477,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       var c = ce.c;
       ce.outside = false;
       var kk = chosen(ce, 'k');
-      var keys = c.sheets.filter(function (k) { return have[k]; });
+      var keys = c.sheets.concat(customKeys(c)).filter(function (k) { return have[k]; });
       if (!keys.length && kk) keys = [kk];
       ce.issuer = c.issuer || chosen(ce, 'issuer');
       ce.method = c.method || chosen(ce, 'method');
@@ -1730,7 +1788,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         var labels = ce.keys.map(function (k) { return RULE[k] ? RULE[k].label : k; });
         var ks = !labels.length ? '' : labels.length <= 3 ? labels.map(function (l) { return '<span class="tag gray">' + esc(l) + '</span>'; }).join(' ') :
           '<span class="tag gray" title="' + esc(labels.join(', ')) + '">교육 ' + labels.length + '개</span>';
-        var sel = !c.sheets.length || !ce.keys.length ? selectOf(ce, 'k', ce.keys.length ? '교육 고르기…' : '법정교육이면 고르기…', kList) : '';
+        var sel = !(c.sheets.length || customKeys(c).length) || !ce.keys.length ? selectOf(ce, 'k', ce.keys.length ? '교육 고르기…' : '법정교육이면 고르기…', kList) : '';
         var iSel = !c.issuer ? '<br>' + selectOf(ce, 'issuer', '교육기관 고르기…', orgs.map(function (o) { return [o, o]; })) : '';
         var mSel = !c.method ? '<br>' + selectOf(ce, 'method', '교육방법 고르기…', [['사이버교육', '사이버교육'], ['대면', '대면']]) : '';
         var mem = (!c.sheets.length || !c.issuer || !c.method) && tagsOf(c).length ? '<br><span class="why">고른 값은 이 PC에 기억해, 같은 모양의 이수증에 다음부터 씁니다</span>' : '';

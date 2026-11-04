@@ -444,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.7 · 2026.11.04 14:52 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.8 · 2026.11.04 14:58 수정</a></div>
 </aside>
 
 <div class="main">
@@ -503,6 +503,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.8</b><span>2026.11.04 14:58</span></div>
+          <ul>
+            <li>법정교육 이수현황: 시트 이름으로 교육을 모르는 시트(「교육을 모르는 시트」)를 <b>직접 고를 수 있게</b> 함 — 목록의 법정교육 중 하나, <b>새 교육(과정명에 시트 이름 낱말이 들어간 이수증, 예: 마약류 예방교육)</b>, 또는 「쓰지 않음」. 고른 값은 이 PC가 시트 이름별로 기억</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.13.7</b><span>2026.11.04 14:52</span></div>
           <ul>
@@ -1462,8 +1468,8 @@
   });
 
   (function () {
-    var VERSION = '1.13.7';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.04 14:52';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.8';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.04 14:58';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
