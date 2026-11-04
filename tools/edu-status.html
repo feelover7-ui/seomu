@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- 외부 네트워크 통신 전면 차단: 파일 내용이 이 PC 밖으로 나갈 수 없음 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' blob: data:; style-src 'unsafe-inline'; img-src data: blob:; form-action 'none'; base-uri 'none'">
 <title>법정교육 이수현황 만들기</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
@@ -263,7 +263,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     </div>
     <div>
       <b>읽지 못하는 이수증</b>
-      <span>스캔한 그림 PDF는 글자가 없어 읽지 못합니다. 「이수증」 탭의 「글자 보기」로 도구가 읽은 글자를 볼 수 있습니다.</span>
+      <span>스캔한 그림 PDF는 <b>글자 인식(OCR)</b>으로 읽습니다 (이 브라우저 안에서만, 파일은 보내지 않음). 인식은 틀릴 수 있어 「스캔본」 표시가 붙으니 성명·날짜를 확인하세요. 「이수증」 탭의 「글자 보기」로 도구가 읽은 글자를 볼 수 있습니다.</span>
     </div>
   </div>
 </footer>
@@ -1097,12 +1097,98 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (!b) return Promise.reject(new Error('글꼴 표 없음: ' + o.name));
     return Promise.resolve({ cMapData: Uint8Array.from(atob(b), function (ch) { return ch.charCodeAt(0); }), compressionType: 1 });
   };
-  function readPdf(buf) {
+  /* 스캔한 그림 PDF: 글자가 없는 쪽은 그림으로 그려 글자 인식(OCR)
+     tesseract.js(한국어)를 이 사이트 안(ocr/)에서 불러와 이 브라우저 안에서만 읽습니다. 파일은 어디로도 보내지 않습니다. */
+  var OCR = (function () {
+    var base = new URL('ocr/', location.href).href, wk = null, lib = null;
+    function load() {
+      if (lib) return lib;
+      lib = new Promise(function (ok, no) {
+        if (window.Tesseract) return ok();
+        var s = document.createElement('script'); s.src = base + 'tesseract.min.js';
+        s.onload = function () { ok(); }; s.onerror = function () { lib = null; no(new Error(location.protocol === 'file:' ? '내려받은 파일로 연 도구에서는 글자 인식이 안 됩니다. 웹 주소(sen-tool.github.io)에서 여세요' : '글자 인식 파일을 불러오지 못함')); };
+        document.head.appendChild(s);
+      });
+      return lib;
+    }
+    function worker() {
+      if (!wk) wk = load().then(function () {
+        return Tesseract.createWorker('kor', 1, { workerPath: base + 'worker.min.js', corePath: base, langPath: base + 'lang', workerBlobURL: false });
+      }).then(function (w) { return w.setParameters({ tessedit_pageseg_mode: '4', preserve_interword_spaces: '1' }).then(function () { return w; }); })
+        .catch(function (e) { wk = null; throw e; });
+      return wk;
+    }
+    // 회색조 + 대비 늘리기
+    function prep(c) {
+      var x = c.getContext('2d'), d = x.getImageData(0, 0, c.width, c.height), p = d.data, n = p.length / 4, hist = new Uint32Array(256), g = new Uint8ClampedArray(n), i, j;
+      for (i = 0, j = 0; i < n; i++, j += 4) { var v = (p[j] * 299 + p[j + 1] * 587 + p[j + 2] * 114) / 1000 | 0; g[i] = v; hist[v]++; }
+      var lo, hi, acc = 0, cut = n * 0.01;
+      for (lo = 0; lo < 255; lo++) { acc += hist[lo]; if (acc > cut) break; }
+      for (acc = 0, hi = 255; hi > 0; hi--) { acc += hist[hi]; if (acc > cut) break; }
+      var span = Math.max(1, hi - lo);
+      for (i = 0, j = 0; i < n; i++, j += 4) { var q = (g[i] - lo) * 255 / span; p[j] = p[j + 1] = p[j + 2] = q; p[j + 3] = 255; }
+      x.putImageData(d, 0, 0); return c;
+    }
+    // 쪽 → 그림 (긴 쪽 약 2400px) → 글자 줄. 줄마다 pdf.js 글자처럼 {str,x,y,w,h} (y는 위가 큼)
+    function page(pg) {
+      var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(4, 2400 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc });
+      var c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+      var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return worker(); }).then(function (w) {
+        return w.recognize(prep(c), {}, { blocks: true });
+      }).then(function (r) {
+        var out = [];
+        (r.data.blocks || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pp) { (pp.lines || []).forEach(function (l) {
+          var t = String(l.text || '').replace(/\s+/g, ' ').trim(), bb = l.bbox;
+          if (!t || l.confidence < 20 && t.length < 4) return;
+          out.push({ str: tidy(t), x: bb.x0 / sc, y: (c.height - (bb.y0 + bb.y1) / 2) / sc, w: (bb.x1 - bb.x0) / sc, h: (bb.y1 - bb.y0) / sc, ocr: true });
+        }); }); });
+        return out;
+      });
+    }
+    // 이수증에 자주 나오는 낱말에서 글자 인식이 잘 틀리는 글자를 바로잡음
+    var FIX = [[/서물/g, '서울'], [/[면연]수원/g, '연수원'], [/교육첨/g, '교육청'], [/지원첨/g, '지원청'], [/법점/g, '법정'], [/점보(보안|공개)/g, '정보$1'],
+               [/행점/g, '행정'], [/[펀편]문교육/g, '전문교육'], [/이[누수][증즘]/g, '이수증'], [/[즘증]명합니다/g, '증명합니다'], [/양섬/g, '양성'], [/감수섬/g, '감수성'],
+               [/교육[첨청]교육연수원/g, '교육청교육연수원'], [/[|]/g, ' '], [/[ㄱ-ㅎㅏ-ㅣ]+/g, ''], [/기\s*관(\s*:\s*\d{4}[.\-])/g, '기간$1']];
+    function tidy(t) {
+      t = t.replace(/[;；]/g, ':').replace(/\s*(?:[:：]\s*)+/g, ' : ');
+      FIX.forEach(function (f) { t = t.replace(f[0], f[1]); });
+      // 통일교육 번호 「2026-CES3007221-000001」의 CES를 숫자로 읽은 경우
+      t = t.replace(/^(\d{4})-(?!CES)[0-9A-Z£€]{2,3}(\d{7}-\d{6})\b/, '$1-CES$2');
+      // 한 줄에 칸이 둘(「과정 : … 길기 간 : …」)인데 둘째 칸 이름이 앞 글자에 붙어 읽힌 경우 띄움
+      var k = t.indexOf(' : ');
+      if (k >= 0) t = t.slice(0, k + 3) + t.slice(k + 3).replace(/([^\s])((?:기\s*간|기\s*관|과\s*정|성\s*명|직\s*급|소\s*속|이\s*름) : )/g, '$1 $2');
+      return t.replace(/\s{2,}/g, ' ').trim();
+    }
+    return { page: page };
+  })();
+  // 글자 인식으로 읽은 성명은 틀리기 쉬워 서식 명단의 이름과 맞춤: 명단 이름이 그대로 들어 있거나, 한 글자만 다른 이름이 하나뿐이면 그 이름
+  function ocrName(c, lines) {
+    var people = formRoster().concat(EDU.parseRoster($('roster').value)), names = {};
+    people.forEach(function (p) { var n = norm(p.name); if (n.length >= 2) names[n] = 1; });
+    names = Object.keys(names);
+    var raw = norm(c.name).replace(/[^가-힣]/g, '');
+    if (!names.length || names.indexOf(raw) >= 0) return;
+    var nameLines = lines.filter(function (l) { return /성\s*명|이\s*름/.test(l); }).map(norm), hay = raw + ' ' + nameLines.join(' ');
+    var hit = names.filter(function (n) { return hay.indexOf(n) >= 0; });
+    if (hit.length !== 1) {
+      var one = function (a, b) { if (a.length !== b.length) return false; var d = 0; for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) d++; return d === 1; };
+      hit = names.filter(function (n) { return one(n, raw) || one(n, raw.slice(0, n.length)); });
+    }
+    if (hit.length === 1) { c.ocrName = c.name || '(못 읽음)'; c.name = people.filter(function (p) { return norm(p.name) === hit[0]; })[0].name; }
+  }
+  function readPdf(buf, onOcr) {
     return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false, disableFontFace: true, useWorkerFetch: false, CMapReaderFactory: KCMap, verbosity: 0 }).promise.then(function (doc) {
       var pages = [], chain = Promise.resolve();
       for (var i = 1; i <= doc.numPages; i++) (function (i) {
-        chain = chain.then(function () { return doc.getPage(i); }).then(function (pg) { return pg.getTextContent(); }).then(function (tc) {
-          pages.push(tc.items.map(function (t) { return { str: t.str, x: t.transform[4], y: t.transform[5], w: t.width, h: t.height || Math.abs(t.transform[3]) }; }));
+        var pg;
+        chain = chain.then(function () { return doc.getPage(i); }).then(function (p) { pg = p; return pg.getTextContent(); }).then(function (tc) {
+          var items = tc.items.map(function (t) { return { str: t.str, x: t.transform[4], y: t.transform[5], w: t.width, h: t.height || Math.abs(t.transform[3]) }; });
+          var chars = items.reduce(function (a, t) { return a + String(t.str).replace(/\s/g, '').length; }, 0);
+          if (chars >= 10) { pages.push(items); return; }
+          // 글자가 (거의) 없는 쪽 = 스캔한 그림 → 글자 인식
+          if (onOcr) onOcr(i, doc.numPages);
+          return OCR.page(pg).then(function (o) { o.ocr = true; pages.push(o); }, function (e) { var o = []; o.ocrErr = e && e.message || String(e); pages.push(o); });
         });
       })(i);
       return chain.then(function () { doc.destroy(); return pages; });
@@ -1147,13 +1233,21 @@ if (typeof module !== 'undefined') module.exports = XW;
     });
     todo.forEach(function (f) {
       seen[f.name + '|' + f.size] = 1;
-      chain = chain.then(function () { return readBuf(f); }).then(function (buf) { return readPdf(buf); }).then(function (pages) {
-        var got = 0, anyText = false;
+      chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
+        return readPdf(buf, function (i, n) { $('srcName').textContent = '스캔한 PDF 글자 인식 중… ' + f.name + (n > 1 ? ' (' + i + '/' + n + '쪽)' : '') + ' · 처음 한 번은 인식 자료를 불러와 조금 걸립니다'; });
+      }).then(function (pages) {
+        var got = 0, anyText = false, ocrErr = '';
         pages.forEach(function (items, pi) {
+          if (items.ocrErr) ocrErr = items.ocrErr;
           var lines = EDU.toLines(items);
           if (lines.length) anyText = true;
           var c = EDU.parseCert(lines);
           if (!c.name && !c.course) return;
+          if (items.ocr && !c.org) {   // 「소 속 :」 칸 이름을 못 읽어 소속 줄만 남은 경우
+            var og = lines.filter(function (l) { return /(교육청|지원청|학교|연수원|교육원)/.test(l) && /(과|팀|실|국|센터|부|행정실)$/.test(norm(l)) && !/[:：]/.test(l); })[0];
+            if (og) { c.org = og.replace(/\s+/g, ' ').trim(); c.dept = c.org.split(' ').pop() || ''; }
+          }
+          if (items.ocr) { c.ocr = true; ocrName(c, lines); c.why = (c.why ? c.why + ' · ' : '') + '스캔본 글자 인식' + (c.ocrName ? ' (성명 「' + c.ocrName + '」→ 명단의 「' + c.name + '」)' : '') + ' — 성명·날짜를 원본과 확인하세요'; }
           certs.push({ id: nextId++, file: f.name, page: pages.length > 1 ? pi + 1 : 0, c: c, lines: lines });
           got++;
         });
@@ -1166,7 +1260,8 @@ if (typeof module !== 'undefined') module.exports = XW;
         }
         if (!got) delete seen[f.name + '|' + f.size];
         if (!got && anyText && !tpl) { listNote(f.name + ' — 이수증이 아님. 이수자 명단 공문이면 1번에 서식을 먼저 넣고 다시 넣으세요'); return; }
-        if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)') : ' — 글자가 없는 PDF (스캔한 그림)'));
+        if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (pages.some(function (p) { return p.ocr; }) ? ' (스캔본 글자 인식 결과, 「글자 보기」 없이 흐리거나 기울어진 경우 더 선명하게 스캔해 주세요)' : '') + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)')
+                                       : ocrErr ? ' — 스캔한 그림 PDF인데 글자 인식을 하지 못함 (' + ocrErr + ')' : ' — 스캔한 그림 PDF에서 글자를 찾지 못함'));
       }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
     chain.then(function () {
