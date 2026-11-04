@@ -377,7 +377,8 @@ var EDU = (function () {
     { k: 'suicide', label: '자살예방', re: /자살/ },
     { k: 'active', label: '적극행정', re: /적극\s*행정/ },
     { k: 'unify', label: '통일', re: /통일/ },
-    { k: 'gender', label: '성인지', re: /성\s*인지|양성\s*평등/ }
+    { k: 'gender', label: '성인지', re: /성\s*인지|양성\s*평등/ },
+    { k: 'software', label: '소프트웨어 관리', re: /소프트\s*웨어|S\s*W\s*관리|불법\s*S\s*W|저작권/i }
   ];
   /* 글자로 교육 이름·기관이 안 나오는 이수증: 번호 모양으로 알아봄 (기관 이름·마크가 그림이라 PDF 글자에 없음) */
   var KNOWN = [
