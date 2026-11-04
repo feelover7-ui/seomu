@@ -444,7 +444,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.10 · 2026.11.04 15:02 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.13.11 · 2026.11.04 15:23 수정</a></div>
 </aside>
 
 <div class="main">
@@ -503,6 +503,13 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.13.11</b><span>2026.11.04 15:23</span></div>
+          <ul>
+            <li>법정교육 이수현황: <b>그림 이수증인데 주소·출력일시 같은 글자가 조금 들어 있는 PDF</b>도 글자 인식(OCR)으로 읽음 — 전에는 글자가 조금이라도 있으면 인식을 건너뛰어 「이수증이 아님」으로 나왔음</li>
+            <li>법정교육 이수현황: <b>사진·그림 파일(JPG·PNG) 이수증</b>도 넣으면 글자 인식으로 읽음</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.13.10</b><span>2026.11.04 15:02</span></div>
           <ul>
@@ -1480,8 +1487,8 @@
   });
 
   (function () {
-    var VERSION = '1.13.10';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.04 15:02';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.13.11';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.04 15:23';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',

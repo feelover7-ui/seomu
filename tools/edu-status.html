@@ -198,7 +198,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <ul class="folder-tips">
       <li>사람·교육 순서가 뒤섞여 있어도 됩니다.</li>
       <li><b>다른 교육·다른 부서 사람 이수증</b>이 섞여 있어도 알아서 걸러 냅니다.</li>
-      <li>PDF가 아닌 파일(한글·사진 등)은 건너뜁니다.</li>
+      <li>스캔한 그림 PDF나 사진(JPG·PNG)으로 된 이수증은 글자 인식(OCR)으로 읽습니다. 한글(.hwp) 등 다른 파일은 건너뜁니다.</li>
       <li>법정묶음 이수증 한 장은 들어 있는 교육 시트마다 채웁니다.</li>
       <li><b>대면교육 이수자 명단</b>(명단 엑셀이나 공문 PDF·ODT·한글 hwpx)도 같이 넣으면, 이수증이 아닌 걸 알아보고 아래 「대면교육 이수자 명단」으로 옮깁니다.</li>
     </ul>
@@ -252,7 +252,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 </section>
 
 <input type="file" id="tplInput" accept=".xlsx,.xlsm" class="hidden">
-<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.xlsx,.xls,.csv,.odt,.hwpx,.hwp" class="hidden">
+<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.jpg,.jpeg,.png,image/*,.xlsx,.xls,.csv,.odt,.hwpx,.hwp" class="hidden">
 <input type="file" id="dirInput" webkitdirectory multiple class="hidden">
 
 <footer>
@@ -1196,7 +1196,24 @@ if (typeof module !== 'undefined') module.exports = XW;
       var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(4, 2400 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc });
       var c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
       var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return worker(); }).then(function (w) {
+      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return canvasLines(c, sc); });
+    }
+    // 사진·그림 파일(JPG·PNG) → 글자 줄
+    function image(blob) {
+      return new Promise(function (ok, no) {
+        var u = URL.createObjectURL(blob), im = new Image();
+        im.onload = function () {
+          var w0 = im.naturalWidth, h0 = im.naturalHeight, sc = Math.min(2, 2400 / Math.max(w0, h0));
+          var c = document.createElement('canvas'); c.width = Math.round(w0 * sc); c.height = Math.round(h0 * sc);
+          var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(u); ok(canvasLines(c, sc));
+        };
+        im.onerror = function () { URL.revokeObjectURL(u); no(new Error('그림을 열 수 없음')); };
+        im.src = u;
+      });
+    }
+    function canvasLines(c, sc) {
+      return worker().then(function (w) {
         return w.recognize(prep(c), {}, { blocks: true });
       }).then(function (r) {
         var out = [];
@@ -1222,7 +1239,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (k >= 0) t = t.slice(0, k + 3) + t.slice(k + 3).replace(/([^\s])((?:기\s*간|기\s*관|과\s*정|성\s*명|직\s*급|소\s*속|이\s*름) : )/g, '$1 $2');
       return t.replace(/\s{2,}/g, ' ').trim();
     }
-    return { page: page };
+    return { page: page, image: image };
   })();
   // 글자 인식으로 읽은 성명은 틀리기 쉬워 서식 명단의 이름과 맞춤: 명단 이름이 그대로 들어 있거나, 한 글자만 다른 이름이 하나뿐이면 그 이름
   function ocrName(c, lines) {
@@ -1247,10 +1264,20 @@ if (typeof module !== 'undefined') module.exports = XW;
         chain = chain.then(function () { return doc.getPage(i); }).then(function (p) { pg = p; return pg.getTextContent(); }).then(function (tc) {
           var items = tc.items.map(function (t) { return { str: t.str, x: t.transform[4], y: t.transform[5], w: t.width, h: t.height || Math.abs(t.transform[3]) }; });
           var chars = items.reduce(function (a, t) { return a + String(t.str).replace(/\s/g, '').length; }, 0);
-          if (chars >= 10) { pages.push(items); return; }
+          var ocr = function () {
+            if (onOcr) onOcr(i, doc.numPages);
+            return OCR.page(pg).then(function (o) { o.ocr = true; pages.push(o); }, function (e) { if (chars) { pages.push(items); return; } var o = []; o.ocrErr = e && e.message || String(e); pages.push(o); });
+          };
           // 글자가 (거의) 없는 쪽 = 스캔한 그림 → 글자 인식
-          if (onOcr) onOcr(i, doc.numPages);
-          return OCR.page(pg).then(function (o) { o.ocr = true; pages.push(o); }, function (e) { var o = []; o.ocrErr = e && e.message || String(e); pages.push(o); });
+          if (chars < 10) return ocr();
+          // 글자가 조금 있어도(주소·머리글·번호만 글자) 성명·과정을 못 찾고 그림이 들어 있으면 → 그림 속 글자도 인식
+          var c0 = EDU.parseCert(EDU.toLines(items));
+          if ((c0.name && c0.course) || chars > 600) { pages.push(items); return; }
+          return pg.getOperatorList().then(function (ol) {
+            var O = pdfjsLib.OPS, img = ol.fnArray.some(function (f) { return f === O.paintImageXObject || f === O.paintJpegXObject || f === O.paintInlineImageXObject || f === O.paintImageXObjectRepeat || f === O.paintImageMaskXObject; });
+            if (!img) { pages.push(items); return; }
+            return ocr();
+          }, function () { pages.push(items); });
         });
       })(i);
       return chain.then(function () { doc.destroy(); return pages; });
@@ -1258,7 +1285,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   var nextId = 1;
   function addFiles(list) {
-    var todo = Array.prototype.filter.call(list, function (f) { return /\.pdf$/i.test(f.name) && !seen[f.name + '|' + f.size]; });
+    var todo = Array.prototype.filter.call(list, function (f) { return /\.(pdf|jpe?g|png|bmp|gif|webp)$/i.test(f.name) && !seen[f.name + '|' + f.size]; });
     // 엑셀·CSV는 대면교육 이수자 명단일 수 있음 → 이름(성명) 칸이 있으면 명단으로
     // 명단 파일은 다시 넣으면 다시 읽어 그 파일로 만든 명단을 새로 바꿈 (명단을 고쳐 다시 넣거나, 서식을 넣은 뒤 다시 넣을 때)
     var sheetsIn = Array.prototype.filter.call(list, function (f) { return /\.(xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^~\$/.test(f.name); });
@@ -1267,7 +1294,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     var notes = [];
     var listNote = function (msg) { bad.push(msg); notes.push(msg); };
     var hwp = Array.prototype.filter.call(list, function (f) { return /\.hwp$/i.test(f.name); });
-    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv|odt|hwpx|hwp)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
+    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|jpe?g|png|bmp|gif|webp|xlsx|xls|xlsm|csv|odt|hwpx|hwp)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
     if (skipped.length) bad.push('PDF가 아닌 파일 ' + skipped.length + '개는 건너뜀: ' + skipped.slice(0, 5).map(function (f) { return f.name; }).join(', ') + (skipped.length > 5 ? ' 외' : ''));
     // 다시 읽는 파일의 지난번 오류 안내는 지움
     var again = sheetsIn.concat(docsIn, todo).map(function (f) { return f.name + ' — '; });
@@ -1295,7 +1322,11 @@ if (typeof module !== 'undefined') module.exports = XW;
     });
     todo.forEach(function (f) {
       seen[f.name + '|' + f.size] = 1;
-      chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
+      chain = chain.then(function () { return /\.pdf$/i.test(f.name) ? readBuf(f) : null; }).then(function (buf) {
+        if (!buf) {   // 사진·그림 파일 → 글자 인식
+          $('srcName').textContent = '그림 글자 인식 중… ' + f.name + ' · 처음 한 번은 인식 자료를 불러와 조금 걸립니다';
+          return OCR.image(f).then(function (o) { o.ocr = true; return [o]; }, function (e) { var o = []; o.ocrErr = e && e.message || String(e); return [o]; });
+        }
         return readPdf(buf, function (i, n) { $('srcName').textContent = '스캔한 PDF 글자 인식 중… ' + f.name + (n > 1 ? ' (' + i + '/' + n + '쪽)' : '') + ' · 처음 한 번은 인식 자료를 불러와 조금 걸립니다'; });
       }).then(function (pages) {
         var got = 0, anyText = false, ocrErr = '';
