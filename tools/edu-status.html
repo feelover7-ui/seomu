@@ -1214,13 +1214,13 @@ if (typeof module !== 'undefined') module.exports = XW;
     }
     /* 보통은 줄 단위(4)로 읽고, 성명을 못 찾으면 글자를 띄워 쓴 칸 이름(「이 수 번 호」「성   명」)이 살아나는 방식(6)으로 한 번 더 읽어 칸을 더 많이 찾은 쪽을 씀 */
     function score(o) {
-      var c = EDU.parseCert(EDU.toLines(o));
+      var c = EDU.parseCert(EDU.toLines(o).map(fixLabel));
       return (c.name ? 3 : 0) + (c.course ? 3 : 0) + (c.no ? 1 : 0) + (c.period ? 1 : 0) + (c.date ? 1 : 0) + (c.org ? 1 : 0);
     }
     function best(c, sc) {
       var img = prep(c);
       return canvasLines(img, sc, '4').then(function (a) {
-        if (EDU.parseCert(EDU.toLines(a)).name) return a;
+        if (EDU.parseCert(EDU.toLines(a).map(fixLabel)).name) return a;
         return canvasLines(img, sc, '6').then(function (b) { return score(b) > score(a) ? b : a; }, function () { return a; });
       });
     }
@@ -1241,10 +1241,29 @@ if (typeof module !== 'undefined') module.exports = XW;
     // 이수증에 자주 나오는 낱말에서 글자 인식이 잘 틀리는 글자를 바로잡음
     var FIX = [[/서물/g, '서울'], [/[면연]수원/g, '연수원'], [/교육첨/g, '교육청'], [/지원첨/g, '지원청'], [/법점/g, '법정'], [/점보(보안|공개)/g, '정보$1'],
                [/행점/g, '행정'], [/[펀편]문교육/g, '전문교육'], [/이[누수][증즘]/g, '이수증'], [/[즘증]명합니다/g, '증명합니다'], [/양섬/g, '양성'], [/감수섬/g, '감수성'],
-               [/교육[첨청]교육연수원/g, '교육청교육연수원'], [/[|]/g, ' '], [/[ㄱ-ㅎㅏ-ㅣ]+/g, ''], [/기\s*관(\s*:\s*\d{4}[.\-])/g, '기간$1']];
+               [/교육[첨청]교육연수원/g, '교육청교육연수원'], [/[|]/g, ' '], [/[ㄱ-ㅎㅏ-ㅣ]+/g, ''], [/기\s*관(\s*:\s*\d{4}[.\-])/g, '기간$1'],
+               [/(원격교육연수원-)일[받발밤]/, '$1일반'], [/(-일반-)자[융율윻을]/, '$1자율']];
+    /* 칸 이름을 띄워 쓴 이수증(「성      명 :」「연 수 기 간 :」, 한국저작권위원회 등)은 칸 이름 글자가 잘 틀림(정명·연주기찬)
+       → 「: 」 앞 글자를 아는 칸 이름과 견주어, 한두 글자만 다르고 가장 가까운 것이 하나뿐이면 그 칸 이름으로 */
+    var KNOWN_LB = ['성명', '이름', '직급', '직위', '소속', '근무기관', '소속기관', '생년월일', '연수종류', '교육종류', '연수기간', '교육기간', '이수기간', '수강기간',
+                    '연수과정', '교육과정', '과정명', '이수시간', '교육시간', '인정시간', '교육인정시간', '이수번호', '이수증번호', '발급번호'];
+    function fixLabel(t) {
+      var m = /^[^가-힣0-9]*([가-힣](?:\s*[가-힣]){1,5})\s*:\s*(.*)$/.exec(t);
+      if (!m) return t;
+      var lab = m[1].replace(/\s+/g, ''), hit = null, bestD = 9, tie = false;
+      if (KNOWN_LB.indexOf(lab) >= 0) return lab + ' : ' + m[2];
+      KNOWN_LB.forEach(function (k) {
+        if (k.length !== lab.length) return;
+        var d = 0; for (var i = 0; i < k.length; i++) if (k[i] !== lab[i]) d++;
+        if (d < bestD) { bestD = d; hit = k; tie = false; } else if (d === bestD) tie = true;
+      });
+      var allow = lab.length <= 3 ? 1 : 2;
+      return hit && bestD <= allow && !tie ? hit + ' : ' + m[2] : t;
+    }
     function tidy(t) {
-      t = t.replace(/[;；]/g, ':').replace(/\s*(?:[:：]\s*)+/g, ' : ');
+      t = t.replace(/[;；]/g, ':').replace(/\s*[、,.'`]*\s*(?:[:：]\s*)+/g, ' : ');
       FIX.forEach(function (f) { t = t.replace(f[0], f[1]); });
+      t = fixLabel(t.trim());
       // 통일교육 번호 「2026-CES3007221-000001」의 CES를 숫자로 읽은 경우
       t = t.replace(/^(\d{4})-(?!CES)[0-9A-Z£€]{2,3}(\d{7}-\d{6})\b/, '$1-CES$2');
       // 한 줄에 칸이 둘(「과정 : … 길기 간 : …」)인데 둘째 칸 이름이 앞 글자에 붙어 읽힌 경우 띄움
@@ -1252,7 +1271,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (k >= 0) t = t.slice(0, k + 3) + t.slice(k + 3).replace(/([^\s])((?:기\s*간|기\s*관|과\s*정|성\s*명|직\s*급|소\s*속|이\s*름) : )/g, '$1 $2');
       return t.replace(/\s{2,}/g, ' ').trim();
     }
-    return { page: page, image: image };
+    return { page: page, image: image, fixLabel: fixLabel };
   })();
   // 글자 인식으로 읽은 성명은 틀리기 쉬워 서식 명단의 이름과 맞춤: 명단 이름이 그대로 들어 있거나, 한 글자만 다른 이름이 하나뿐이면 그 이름
   function ocrName(c, lines) {
@@ -1346,6 +1365,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         pages.forEach(function (items, pi) {
           if (items.ocrErr) ocrErr = items.ocrErr;
           var lines = EDU.toLines(items);
+          if (items.ocr) lines = lines.map(OCR.fixLabel);   // 글자 인식이 한 줄을 둘로 나눠 읽은 경우 합친 줄에서 다시 칸 이름 바로잡기
           if (lines.length) anyText = true;
           var c = EDU.parseCert(lines);
           if (!c.name && !c.course && !(c.no && c.sheets.length)) return;   // 번호로 교육을 안 이수증(한저위 등)은 성명을 못 읽어도 목록에 (성명은 확인)
