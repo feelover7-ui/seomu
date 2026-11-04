@@ -384,7 +384,7 @@ var EDU = (function () {
   var KNOWN = [
     { re: /서울\s*교육\s*연수원|법정\s*묶음/, all: true, issuer: '서울특별시교육청교육연수원' },   // 「제 서울교육연수원-…」 번호·법정묶음 과정
     { re: /중앙\s*교육\s*연수원/, all: true, issuer: '중앙교육연수원' },
-    { re: /한\s*저\s*위/, k: 'software', issuer: '한국저작권위원회', force: true, why: '이수번호 「한저위…」 → 한국저작권위원회 교육 (소프트웨어 관리)' },
+    { re: /한\s*[저져]\s*위/, k: 'software', issuer: '한국저작권위원회', force: true, why: '이수번호 「한저위…」 → 한국저작권위원회 교육 (소프트웨어 관리)' },
     { re: /^\d{4}-CES\d+-\d+$/, k: 'unify', issuer: '통일부 국립통일교육원', method: '사이버교육', why: '번호 2026-CES… → 국립통일교육원(국립평화통일민주교육원) 이수증' }
   ];
   function rulesIn(text) {
@@ -492,7 +492,7 @@ var EDU = (function () {
       var nm = /^(?:NO\.?|No\.?|번호)\s*[:：]?\s*(.+)$/.exec(trim(line));
       if (nm && !c.no && /\d/.test(nm[1])) { c.no = trim(nm[1]); cur = null; return; }
       // 한국저작권위원회 번호만 있는 줄 (「한저위-2026-…」, 「제 한저위… 호」는 위에서)
-      if (!c.no && /^한\s*저\s*위/.test(trim(line))) { c.no = trim(line); cur = null; return; }
+      if (!c.no && /^[:：]?\s*(제\s*)?한\s*[저져]\s*위/.test(trim(line))) { c.no = trim(line).replace(/^[:：]\s*/, '').replace(/^(제\s*)?한\s*[저져]\s*위/, '$1한저위'); cur = null; return; }
       // 맨 위의 번호만 있는 줄 (2026-CES3007221-287390)
       if (!c.no && !c.name && !/[가-힣]/.test(line) && /\d/.test(line) && /-/.test(line) && cl.length >= 8) { c.no = trim(line); cur = null; return; }
       // 값이 여러 줄이면 칸 이름이 가운데 줄에 찍혀, 「: 값 첫 줄」이 칸 이름보다 위에 나옴 → 다음 칸 이름의 값으로
@@ -1196,7 +1196,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(4, 2400 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc });
       var c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
       var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return canvasLines(c, sc); });
+      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return best(c, sc); });
     }
     // 사진·그림 파일(JPG·PNG) → 글자 줄
     function image(blob) {
@@ -1206,16 +1206,29 @@ if (typeof module !== 'undefined') module.exports = XW;
           var w0 = im.naturalWidth, h0 = im.naturalHeight, sc = Math.min(2, 2400 / Math.max(w0, h0));
           var c = document.createElement('canvas'); c.width = Math.round(w0 * sc); c.height = Math.round(h0 * sc);
           var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
-          URL.revokeObjectURL(u); ok(canvasLines(c, sc));
+          URL.revokeObjectURL(u); ok(best(c, sc));
         };
         im.onerror = function () { URL.revokeObjectURL(u); no(new Error('그림을 열 수 없음')); };
         im.src = u;
       });
     }
-    function canvasLines(c, sc) {
+    /* 보통은 줄 단위(4)로 읽고, 성명을 못 찾으면 글자를 띄워 쓴 칸 이름(「이 수 번 호」「성   명」)이 살아나는 방식(6)으로 한 번 더 읽어 칸을 더 많이 찾은 쪽을 씀 */
+    function score(o) {
+      var c = EDU.parseCert(EDU.toLines(o));
+      return (c.name ? 3 : 0) + (c.course ? 3 : 0) + (c.no ? 1 : 0) + (c.period ? 1 : 0) + (c.date ? 1 : 0) + (c.org ? 1 : 0);
+    }
+    function best(c, sc) {
+      var img = prep(c);
+      return canvasLines(img, sc, '4').then(function (a) {
+        if (EDU.parseCert(EDU.toLines(a)).name) return a;
+        return canvasLines(img, sc, '6').then(function (b) { return score(b) > score(a) ? b : a; }, function () { return a; });
+      });
+    }
+    function canvasLines(img, sc, psm) {
       return worker().then(function (w) {
-        return w.recognize(prep(c), {}, { blocks: true });
+        return w.setParameters({ tessedit_pageseg_mode: psm }).then(function () { return w.recognize(img, {}, { blocks: true }); });
       }).then(function (r) {
+        var c = img;
         var out = [];
         (r.data.blocks || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pp) { (pp.lines || []).forEach(function (l) {
           var t = String(l.text || '').replace(/\s+/g, ' ').trim(), bb = l.bbox;
@@ -1335,7 +1348,7 @@ if (typeof module !== 'undefined') module.exports = XW;
           var lines = EDU.toLines(items);
           if (lines.length) anyText = true;
           var c = EDU.parseCert(lines);
-          if (!c.name && !c.course) return;
+          if (!c.name && !c.course && !(c.no && c.sheets.length)) return;   // 번호로 교육을 안 이수증(한저위 등)은 성명을 못 읽어도 목록에 (성명은 확인)
           if (items.ocr && !c.org) {   // 「소 속 :」 칸 이름을 못 읽어 소속 줄만 남은 경우
             var og = lines.filter(function (l) { return /(교육청|지원청|학교|연수원|교육원)/.test(l) && /(과|팀|실|국|센터|부|행정실)$/.test(norm(l)) && !/[:：]/.test(l); })[0];
             if (og) { c.org = og.replace(/\s+/g, ' ').trim(); c.dept = c.org.split(' ').pop() || ''; }
@@ -1353,7 +1366,8 @@ if (typeof module !== 'undefined') module.exports = XW;
         }
         if (!got) delete seen[f.name + '|' + f.size];
         if (!got && anyText && !tpl) { listNote(f.name + ' — 이수증이 아님. 이수자 명단 공문이면 1번에 서식을 먼저 넣고 다시 넣으세요'); return; }
-        if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (pages.some(function (p) { return p.ocr; }) ? ' (스캔본 글자 인식 결과, 「글자 보기」 없이 흐리거나 기울어진 경우 더 선명하게 스캔해 주세요)' : '') + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)')
+        var seenTxt = function () { var t = [].concat.apply([], pages.map(function (items) { return EDU.toLines(items); })).join(' / '); return t ? ' · 읽은 글자: ' + (t.length > 300 ? t.slice(0, 300) + '…' : t) : ''; };
+        if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (pages.some(function (p) { return p.ocr; }) ? ' (스캔본 글자 인식 결과 — 흐리거나 기울어진 경우 더 선명하게 스캔해 주세요)' + seenTxt() : '') + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)')
                                        : ocrErr ? ' — 스캔한 그림 PDF인데 글자 인식을 하지 못함 (' + ocrErr + ')' : ' — 스캔한 그림 PDF에서 글자를 찾지 못함'));
       }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
