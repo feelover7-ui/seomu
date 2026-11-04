@@ -384,6 +384,7 @@ var EDU = (function () {
   var KNOWN = [
     { re: /서울\s*교육\s*연수원|법정\s*묶음/, all: true, issuer: '서울특별시교육청교육연수원' },   // 「제 서울교육연수원-…」 번호·법정묶음 과정
     { re: /중앙\s*교육\s*연수원/, all: true, issuer: '중앙교육연수원' },
+    { re: /한\s*저\s*위/, k: 'software', issuer: '한국저작권위원회', force: true, why: '이수번호 「한저위…」 → 한국저작권위원회 교육 (소프트웨어 관리)' },
     { re: /^\d{4}-CES\d+-\d+$/, k: 'unify', issuer: '통일부 국립통일교육원', method: '사이버교육', why: '번호 2026-CES… → 국립통일교육원(국립평화통일민주교육원) 이수증' }
   ];
   function rulesIn(text) {
@@ -490,6 +491,8 @@ var EDU = (function () {
       if (no && !c.no) { c.no = '제 ' + trim(no[1]) + ' 호'; cur = null; return; }
       var nm = /^(?:NO\.?|No\.?|번호)\s*[:：]?\s*(.+)$/.exec(trim(line));
       if (nm && !c.no && /\d/.test(nm[1])) { c.no = trim(nm[1]); cur = null; return; }
+      // 한국저작권위원회 번호만 있는 줄 (「한저위-2026-…」, 「제 한저위… 호」는 위에서)
+      if (!c.no && /^한\s*저\s*위/.test(trim(line))) { c.no = trim(line); cur = null; return; }
       // 맨 위의 번호만 있는 줄 (2026-CES3007221-287390)
       if (!c.no && !c.name && !/[가-힣]/.test(line) && /\d/.test(line) && /-/.test(line) && cl.length >= 8) { c.no = trim(line); cur = null; return; }
       // 값이 여러 줄이면 칸 이름이 가운데 줄에 찍혀, 「: 값 첫 줄」이 칸 이름보다 위에 나옴 → 다음 칸 이름의 값으로
@@ -534,7 +537,7 @@ var EDU = (function () {
     }
     KNOWN.forEach(function (kn) {
       if (!kn.re.test(kn.all ? c.no + ' ' + c.course : trim(c.no))) return;
-      if (kn.k && !c.sheets.length) c.sheets = [kn.k];
+      if (kn.k && (!c.sheets.length || kn.force)) c.sheets = [kn.k];   // force: 이 번호면 과정명과 상관없이 그 교육
       if (kn.issuer && !c.issuer) c.issuer = kn.issuer;
       if (kn.method && !c.method) c.method = kn.method;
       if (kn.why) c.why = kn.why;
