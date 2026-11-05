@@ -263,7 +263,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     </div>
     <div>
       <b>읽지 못하는 이수증</b>
-      <span>스캔한 그림 PDF는 <b>글자 인식(OCR)</b>으로 읽습니다 (이 브라우저 안에서만, 파일은 보내지 않음). 인식은 틀릴 수 있어 「스캔본」 표시가 붙으니 성명·날짜를 확인하세요. 「이수증」 탭의 「글자 보기」로 도구가 읽은 글자를 볼 수 있습니다.</span>
+      <span>스캔한 그림 PDF·사진은 <b>글자 인식(OCR, PaddleOCR 한국어)</b>으로 읽습니다 (이 브라우저 안에서만, 파일은 보내지 않음 · 처음 한 번은 인식 자료 약 30MB를 불러옴). 인식은 틀릴 수 있어 「스캔본」 표시가 붙으니 성명·날짜를 확인하세요. 「이수증」 탭의 「글자 보기」로 도구가 읽은 글자를 볼 수 있습니다.</span>
     </div>
   </div>
 </footer>
@@ -1196,7 +1196,29 @@ if (typeof module !== 'undefined') module.exports = XW;
       var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(4, 2400 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc });
       var c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
       var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return best(c, sc); });
+      return pg.render({ canvasContext: x, viewport: vp }).promise.then(function () { return engine(c, sc); });
+    }
+    /* 글자 인식 엔진: PaddleOCR 한국어(붓글씨체·숫자에 강함)를 먼저 쓰고, 불러오지 못하면 Tesseract */
+    var pad = null, padFail = false;
+    function paddle() {
+      if (!pad) pad = new Promise(function (ok, no) {
+        if (window.PADDLE) return ok();
+        var s = document.createElement('script'); s.src = base + 'paddle/paddle.js';
+        s.onload = function () { ok(); }; s.onerror = function () { no(new Error('paddle.js')); };
+        document.head.appendChild(s);
+      }).then(function () { return PADDLE.load(base + 'paddle/'); });
+      return pad;
+    }
+    function engine(c, sc) {
+      if (padFail) return best(c, sc);
+      return paddle().then(function () { return PADDLE.read(c); }).then(function (res) {
+        var out = res.map(function (l) {
+          var t = String(l.text).replace(/\s+/g, ' ').trim();
+          return t ? { str: tidy(t), x: l.x0 / sc, y: (c.height - (l.y0 + l.y1) / 2) / sc, w: (l.x1 - l.x0) / sc, h: (l.y1 - l.y0) / sc, ocr: true } : null;
+        }).filter(Boolean);
+        out.engine = 'paddle';
+        return out;
+      }, function (e) { padFail = true; if (window.console) console.warn('PaddleOCR 대신 Tesseract', e); return best(c, sc); });
     }
     // 사진·그림 파일(JPG·PNG) → 글자 줄
     function image(blob) {
@@ -1206,7 +1228,7 @@ if (typeof module !== 'undefined') module.exports = XW;
           var w0 = im.naturalWidth, h0 = im.naturalHeight, sc = Math.min(2, 2400 / Math.max(w0, h0));
           var c = document.createElement('canvas'); c.width = Math.round(w0 * sc); c.height = Math.round(h0 * sc);
           var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
-          URL.revokeObjectURL(u); ok(best(c, sc));
+          URL.revokeObjectURL(u); ok(engine(c, sc));
         };
         im.onerror = function () { URL.revokeObjectURL(u); no(new Error('그림을 열 수 없음')); };
         im.src = u;
@@ -1247,15 +1269,27 @@ if (typeof module !== 'undefined') module.exports = XW;
        → 「: 」 앞 글자를 아는 칸 이름과 견주어, 한두 글자만 다르고 가장 가까운 것이 하나뿐이면 그 칸 이름으로 */
     var KNOWN_LB = ['성명', '이름', '직급', '직위', '소속', '근무기관', '소속기관', '생년월일', '연수종류', '교육종류', '연수기간', '교육기간', '이수기간', '수강기간',
                     '연수과정', '교육과정', '과정명', '이수시간', '교육시간', '인정시간', '교육인정시간', '이수번호', '이수증번호', '발급번호'];
+    function lev(a, b) {
+      var p = [], q, i, j;
+      for (j = 0; j <= b.length; j++) p[j] = j;
+      for (i = 1; i <= a.length; i++) { q = [i]; for (j = 1; j <= b.length; j++) q[j] = Math.min(p[j] + 1, q[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = q; }
+      return p[b.length];
+    }
     function fixLabel(t) {
-      var m = /^[^가-힣0-9]*([가-힣](?:\s*[가-힣]){1,5})\s*:\s*(.*)$/.exec(t);
-      if (!m) return t;
-      var lab = m[1].replace(/\s+/g, ''), hit = null, bestD = 9, tie = false;
+      var m = /^[^가-힣0-9]*([가-힣][^:：0-9]{0,10}?)\s*[:：]\s*(.*)$/.exec(t);
+      if (!m) {   // 「이수시간2시간」처럼 「:」이 빠진 줄: 아는 칸 이름(3글자 이상) 바로 뒤에 숫자가 오면 칸으로
+        var m2 = /^\s*([가-힣]{3,6})\s*(\d.*)$/.exec(t);
+        if (m2) { var hit2 = KNOWN_LB.filter(function (k) { return k.length >= 3 && k === m2[1]; })[0]; if (hit2) return hit2 + ' : ' + m2[2]; }
+        return t;
+      }
+      var lab = m[1].replace(/[^가-힣]/g, ''), hit = null, bestD = 9, tie = false;
+      if (!lab || lab.length > 6) return t;
       if (KNOWN_LB.indexOf(lab) >= 0) return lab + ' : ' + m[2];
+      if (lab === '성' || lab === '명') return '성명 : ' + m[2];            // 「성      명 :」의 한 글자만 읽힌 경우
       KNOWN_LB.forEach(function (k) {
-        if (k.length !== lab.length) return;
-        var d = 0; for (var i = 0; i < k.length; i++) if (k[i] !== lab[i]) d++;
-        if (d < bestD) { bestD = d; hit = k; tie = false; } else if (d === bestD) tie = true;
+        if (Math.abs(k.length - lab.length) > 1) return;
+        var d = lev(k, lab);
+        if (d < bestD) { bestD = d; hit = k; tie = false; } else if (d === bestD && k !== hit) tie = true;
       });
       var allow = lab.length <= 3 ? 1 : 2;
       return hit && bestD <= allow && !tie ? hit + ' : ' + m[2] : t;
@@ -1372,6 +1406,10 @@ if (typeof module !== 'undefined') module.exports = XW;
           if (items.ocr && !c.org) {   // 「소 속 :」 칸 이름을 못 읽어 소속 줄만 남은 경우
             var og = lines.filter(function (l) { return /(교육청|지원청|학교|연수원|교육원)/.test(l) && /(과|팀|실|국|센터|부|행정실)$/.test(norm(l)) && !/[:：]/.test(l); })[0];
             if (og) { c.org = og.replace(/\s+/g, ' ').trim(); c.dept = c.org.split(' ').pop() || ''; }
+          }
+          if (items.ocr && c.org && c.org.trim().split(/\s+/).pop().length > 8) {   // 글자 인식이 띄어쓰기를 붙여 읽은 소속 → 기관 단위로 나눠 끝(부서)만
+            c.org = c.org.replace(/(교육청|지원청|교육지원청|연수원|교육원|본부|학교|[가-힣]국)(?=[가-힣])/g, '$1 ').replace(/\s+/g, ' ').trim();
+            c.dept = c.org.split(' ').pop() || c.dept;
           }
           if (items.ocr) { c.ocr = true; ocrName(c, lines); c.why = (c.why ? c.why + ' · ' : '') + '스캔본 글자 인식' + (c.ocrName ? ' (성명 「' + c.ocrName + '」→ 명단의 「' + c.name + '」)' : '') + ' — 성명·날짜를 원본과 확인하세요'; }
           certs.push({ id: nextId++, file: f.name, page: pages.length > 1 ? pi + 1 : 0, c: c, lines: lines });
