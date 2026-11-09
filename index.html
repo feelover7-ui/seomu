@@ -435,6 +435,8 @@
     <a class="c-coral" href="#contract-ledger" data-id="contract-ledger"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>공사대장 만들기<span class="tag">인터넷</span></a>
     <a class="c-coral" href="#fund-need" data-id="fund-need"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M8 3v4M16 3v4M8 14h3M8 17h6"/></svg>자금소요액 산출<span class="tag">인터넷</span></a>
     <a class="c-coral" href="#edu-env-priority" data-id="edu-env-priority"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>교육환경개선 대시보드<span class="tag">보기</span></a>
+    <div class="group">예산 · 정산</div>
+    <a class="c-purple" href="#mokjeok-fill" data-id="mokjeok-fill"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M6 8h8M6 11h5"/><path d="M13 13l7 3-3 1-1 3z"/></svg>목적사업비 자동입력<span class="tag">버튼</span></a>
     <div class="group">기록물</div>
     <a class="c-slate" href="#record-photo" data-id="record-photo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 8v8M12 8v8M15 8v8"/></svg>기록물 실물목록<span class="tag">사진</span></a>
     <div class="group">민원</div>
@@ -503,6 +505,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.15.0</b><span>2026.11.10 09:00</span></div>
+          <ul>
+            <li><b>새 도구: 목적사업비 자동입력.</b> 목적사업비 정산시스템 등록 화면의 기본사항·정산보고기간·담당자 정보를 도구에서 한 번 입력해 「복사하기」를 누르면, 등록 화면에서 즐겨찾기 버튼만 눌러 채움(처음 한 번 버튼을 즐겨찾기 줄로 끌어다 놓기). 다음 건부터는 지난번 내용으로 바로 채우고, 채운 칸은 노랗게 표시. 대상학교와 저장은 직접</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.14.0</b><span>2026.11.05 20:40</span></div>
           <ul>
@@ -1187,6 +1195,12 @@
           <div class="d">2027~2028 우선순위 공개자료 2,441건 → 분야·기관·학교별 소요액, 학교·사업 검색</div>
           <div class="f"><span>자료 내장 · 넣을 것 없음</span><span class="go">열기 →</span></div>
         </a>
+        <a class="tile c-purple" href="#mokjeok-fill">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M6 8h8M6 11h5"/><path d="M13 13l7 3-3 1-1 3z"/></svg></span><span class="cat">예산 · 정산</span></div>
+          <div class="t">목적사업비 자동입력</div>
+          <div class="d">공통 내용 한 번 입력 → 정산시스템 등록 화면에서 즐겨찾기 버튼만 누르면 기본사항·정산기간이 채워짐</div>
+          <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
+        </a>
       </nav>
 
       <div class="offline">
@@ -1481,6 +1495,24 @@
             </div>
           </details>
         </div>
+        <div class="tool c-purple" data-id="mokjeok-fill">
+          <h3><span class="dot"></span><a href="#mokjeok-fill">목적사업비 자동입력</a></h3>
+          <p class="desc">목적사업비 정산시스템(mokjeok.sen.go.kr)에 사업을 여러 건 등록할 때, 매번 같은 기본사항·정산보고기간·담당자 정보를 도구에서 한 번만 입력해 두면 등록 화면에서 즐겨찾기 버튼 하나로 채워 줍니다. 채운 칸은 노랗게 표시하고, 대상학교와 저장은 직접 합니다.</p>
+          <p class="io"><span class="in">공통 입력 내용 (처음 한 번: 즐겨찾기 버튼 끌어다 놓기)</span><span class="arrow">→</span><span class="out">정산시스템 등록 화면 1~3번 칸 자동 입력</span><span class="net">· 인터넷 없이 됨</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="cap">정산시스템 등록 화면 · 가상 자료 · 노란 칸이 자동으로 채운 곳</p>
+            <div class="xl">
+              <div class="scroll">
+                <table>
+                  <tr><th class="navy">세부사업명</th><th class="navy">재원</th><th class="navy">공모</th><th class="navy">사업부서</th><th class="navy">정산기간</th><th class="navy dim">대상학교</th></tr>
+                  <tr><td class="l">학교시설 환경개선</td><td>교육청 자체 재원</td><td>X</td><td class="l">학교시설지원과 학교시설관리</td><td>2026-12-01 09:00 ~ 2027-01-15 18:00</td><td class="hand"></td></tr>
+                </table>
+              </div>
+              <div class="tabs"><button type="button" class="on">등록 화면</button></div>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div class="note">
@@ -1507,8 +1539,8 @@
   });
 
   (function () {
-    var VERSION = '1.14.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.11.05 20:40';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.15.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.11.10 09:00';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1520,7 +1552,8 @@
       'complaint-ledger': '고충민원 점검대장 만들기',
       'edu-status':       '법정교육 이수현황 만들기',
       'record-photo':     '기록물 실물목록 만들기',
-      'edu-env-priority': '교육환경개선 대상사업 대시보드'
+      'edu-env-priority': '교육환경개선 대상사업 대시보드',
+      'mokjeok-fill':     '목적사업비 자동입력'
     };
     var home = document.getElementById('home');
     var viewer = document.getElementById('viewer');
@@ -1573,6 +1606,11 @@
         need: '넣을 것은 없습니다. 2026.10.8. 교육시설안전과 부서 홈페이지 새소식에 공개된 우선순위 PDF 12개(사업 2,441건)가 도구 안에 들어 있습니다.',
         steps: ['위쪽 필터로 범위 고르기 (그래프 막대나 교차표 칸을 눌러도 됨)', '조건 문장·요약 숫자 확인, 「문장 복사」로 보고서에 붙이기', '학교별 합계·사업 목록을 「CSV 내려받기」 (지금 조건 그대로, 엑셀에서 바로 열림)'],
         check: '공개 PDF를 옮긴 자료라 숫자는 원문과 같지만, 실제 예산 반영 시기와 금액은 재정 여건에 따라 달라집니다. 우선순위는 기관 안에서 분야별로 매긴 순위입니다. 총괄표와 다른 곳(학교 수 1교, 서부 소요액 2천원 등)은 「원문 대조」에 모아 두었고, 사업마다 「근거」로 원문 위치를 확인할 수 있습니다.'
+      },
+      'mokjeok-fill': {
+        need: '목적사업비 정산시스템 로그인, 엣지(또는 크롬) 즐겨찾기 줄. 처음 한 번만 도구 맨 위 점선 버튼을 즐겨찾기 줄로 끌어다 놓습니다.',
+        steps: ['도구에서 기본사항·정산보고기간·담당자 정보 입력 (빈칸은 그대로 두어도 됨)', '「복사하기」', '정산시스템 등록 화면에서 즐겨찾기 「목적사업비 자동입력」 클릭 (처음 한 번은 클립보드 보기 「허용」)', '대상학교 입력 후 저장은 직접'],
+        check: '저장 버튼은 누르지 않습니다. 노란 칸을 확인하고 저장하세요. 다음 건부터는 다른 걸 복사했어도 지난번 내용으로 채웁니다. 클립보드를 못 읽으면 오른쪽 창에 Ctrl+V를 누르세요. 사무실번호가 010으로 시작하면 정산시스템이 저장을 막습니다.'
       },
       'fund-need': {
         need: '지난달 자금소요액 엑셀, 공공데이터포털 인증키(계약정보서비스·나라장터쇼핑몰 품목정보 서비스 두 가지 활용신청)와 기관코드. 인터넷이 필요합니다.',
@@ -1753,7 +1791,7 @@
 
     // 도구 한 번에 받기: 지금 사이트의 파일을 모아 압축 (항상 최신본)
     var BUNDLE = ['index.html',
-      'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html', 'tools/complaint-ledger.html', 'tools/edu-status.html', 'tools/excel-merge.html', 'tools/fund-need.html',
+      'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html', 'tools/complaint-ledger.html', 'tools/edu-status.html', 'tools/excel-merge.html', 'tools/fund-need.html', 'tools/mokjeok-fill.html',
       'tools/edu-env-priority.html',   // 교육환경개선 대시보드: 자료가 파일 안에 들어 있음
       'tools/record-photo.html',   // 기록물 실물목록: 파일로 열면 글자 인식이 막혀 「웹 주소에서 여세요」 안내만 보임 (인식 파일 ocr/는 넣지 않음)
       'samples/기록물_대조표_양식.xlsx',

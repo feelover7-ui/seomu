@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 외부 네트워크 통신 전면 차단: 입력한 내용은 이 PC 밖으로 나가지 않음 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>목적사업비 자동입력</title>
+<style>
+:root{
+  --accent:#534AB7; --accent-2:#463E9E; --accent-soft:#EEEDFE; --accent-line:#D9D6FA;
+  --ink:#2B3137; --muted:#5F6B73; --line:#E3E0D9; --bg:#f6f6f4; --surface:#FFFFFF;
+  --req:#B23A3A; --err-bg:#FDEDED; --ok:#1C7A50;
+  --r:10px; --shadow:0 1px 2px rgba(22,36,44,.05), 0 6px 18px rgba(22,36,44,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body{font-family:"Pretendard Variable",Pretendard,"Malgun Gothic","맑은 고딕",sans-serif}
+.bar{background:#fff;border-bottom:1px solid var(--line)}
+.bar::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--accent) 0%,#8a83e0 55%,#c6c2f4 100%)}
+.bar-in{max-width:1080px;margin:0 auto;padding:14px 20px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.brand h1{margin:0;font-size:22px;letter-spacing:-0.5px}
+.brand .dept{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
+.offline{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--accent-2);background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:99px;padding:6px 13px;font-weight:600}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 20px 52px;display:flex;flex-direction:column;gap:16px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13.5px}
+.flow span{background:var(--accent-soft);color:var(--accent-2);font-weight:700;padding:4px 11px;border-radius:99px}
+.flow i{color:var(--muted);font-style:normal}
+section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:var(--shadow)}
+h2{margin:0;font-size:16.5px;letter-spacing:-0.3px}
+h3{margin:0;font-size:14px;color:var(--muted);font-weight:700}
+p{margin:0}
+.muted{color:var(--muted);font-size:13.5px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.form .full{grid-column:1/-1}
+@media (max-width:640px){.form{grid-template-columns:minmax(0,1fr)}}
+.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.f > span{font-size:13px;font-weight:600;color:var(--muted)}
+.f > span b{color:var(--req)}
+input,select,textarea{font:inherit;font-size:14.5px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:70px}
+.bad{border-color:var(--req)!important;background:var(--err-bg)!important}
+.period{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.period input[type=date]{flex:1 1 140px}
+.period input[type=time]{flex:0 1 110px}
+.period i{color:var(--muted);font-style:normal;padding:0 2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #F5C518;outline-offset:2px}
+.copybar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--surface);border:2px solid var(--accent);border-radius:var(--r);padding:12px 16px;box-shadow:var(--shadow)}
+.btn{font:inherit;font-weight:700;border:1px solid var(--accent);border-radius:99px;padding:10px 24px;background:var(--accent);color:#fff;cursor:pointer;font-size:15px}
+.btn:hover{background:var(--accent-2)}
+.btn.sub{font-size:14px;padding:7px 16px;background:#fff;color:var(--accent)}
+.btn.sub:hover{background:var(--accent-soft)}
+.status{font-size:13.5px;font-weight:600}
+.status.ok{color:var(--ok)} .status.err{color:var(--req)}
+ol.steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+ol.steps li::marker{color:var(--accent);font-weight:700}
+kbd{font-family:Consolas,monospace;font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 6px;background:var(--bg)}
+.setup{border:2px solid var(--accent);background:var(--accent-soft)}
+.drag{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:2px dashed var(--accent);border-radius:8px;color:var(--accent-2);text-decoration:none;font-weight:700;cursor:grab;background:#fff;width:max-content;max-width:100%}
+details{border-top:1px solid var(--accent-line);padding-top:10px}
+details>summary{cursor:pointer;font-size:13.5px;color:var(--muted)}
+details>.in{padding-top:10px;display:flex;flex-direction:column;gap:10px}
+textarea#code{height:70px;font-family:Consolas,monospace;font-size:11px;color:var(--muted);word-break:break-all}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <div class="brand">
+    <h1>목적사업비 자동입력</h1>
+    <span class="dept">목적사업비 정산시스템 등록 화면의 기본사항·정산기간을 버튼 하나로 채웁니다</span>
+  </div>
+  <div class="offline">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    입력한 내용은 이 PC 밖으로 나가지 않습니다
+  </div>
+</div></div>
+
+<div class="wrap">
+  <div class="flow"><span>처음 한 번: 버튼 끌어다 놓기</span><i>→</i><span>① 여기서 입력</span><i>→</i><span>② 복사하기</span><i>→</i><span>③ 정산시스템에서 버튼만 누르기</span></div>
+
+  <section class="setup" aria-labelledby="h-setup">
+    <h2 id="h-setup">처음 한 번만: 즐겨찾기 버튼 만들기</h2>
+    <ol class="steps">
+      <li>엣지에서 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>를 눌러 주소창 아래에 즐겨찾기 줄을 띄워요.</li>
+      <li>아래 초록 점선 버튼을 마우스로 잡고, 그 즐겨찾기 줄 위에 끌어다 놓아요.</li>
+    </ol>
+    <a class="drag" id="dragLink" href="#">⤓ 목적사업비 자동입력</a>
+    <p class="muted">예전에 만든 버튼이 있다면 지우고 이걸로 다시 만들어 주세요.</p>
+    <details>
+      <summary>끌어다 놓기가 안 될 때</summary>
+      <div class="in">
+        <p class="muted">코드를 복사해서, 즐겨찾기를 아무거나 하나 만든 뒤 우클릭 → <strong>편집</strong>에서 URL 칸에 붙여넣으면 돼요.</p>
+        <div class="row"><button class="btn sub" id="codeBtn" type="button">버튼 코드 복사</button><span class="status ok" id="codeStatus" role="status"></span></div>
+        <textarea id="code" readonly aria-label="즐겨찾기 버튼 코드"></textarea>
+      </div>
+    </details>
+  </section>
+
+  <section aria-labelledby="h-basic">
+    <h2 id="h-basic">1. 기본사항</h2>
+    <div class="form">
+      <label class="f"><span>기준연도 <b>*</b></span><select id="stdYear"><option>2026</option><option>2025</option><option>2024</option></select></label>
+      <label class="f"><span>세부사업명 <b>*</b></span><input id="dtlProjNm" maxlength="50" placeholder="예: 학교시설 환경개선"></label>
+      <label class="f"><span>세세부사업명 <b>*</b></span><input id="dtlDtlProjNm" maxlength="50" placeholder="예: 급식실 환기설비 개선"></label>
+      <label class="f"><span>학교안내사업명 <b>*</b></span><input id="schlInfoProjNm" maxlength="150" placeholder="예: 2026 급식실 환기설비 개선 지원"></label>
+      <label class="f"><span>재원 <b>*</b></span>
+        <select id="source"><option>교육청 자체 재원</option><option>특별교부금</option><option>국고보조금</option><option>광역자치단체전입금</option><option>기초자치단체전입금</option><option>기타</option></select></label>
+      <label class="f" id="sourceEtcWrap" hidden><span>재원 기타 내용 <b>*</b></span><input id="sourceEtc"></label>
+      <label class="f"><span>공모여부 <b>*</b></span><select id="poYn"><option>O</option><option>X</option></select></label>
+      <label class="f"><span>결과보고서 취합여부 <b>*</b></span><select id="resRptGtrYn"><option>O</option><option>X</option></select></label>
+      <label class="f"><span>반납여부 <b>*</b></span><select id="rtnSt"><option>미반납</option><option>전액반납</option><option>10만원이상 반납</option></select></label>
+      <label class="f"><span>명시이월 가능여부</span><select id="coProjYn"><option>가능</option><option>불가능</option></select></label>
+    </div>
+    <h3>담당자 정보 <span class="muted" style="font-weight:400">· 한 번 넣으면 다음에도 그대로 남아요</span></h3>
+    <div class="form">
+      <label class="f"><span>사업부서 <b>*</b></span><select id="projDept"></select></label>
+      <label class="f"><span>사업담당자 <b>*</b></span><input id="projMngNm" maxlength="50" placeholder="이름"></label>
+      <label class="f"><span>사무실번호 <b>*</b></span><input id="projMngTel" maxlength="20" placeholder="02-0000-0000"></label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-period">
+    <h2 id="h-period">2. 정산보고기간</h2>
+    <div class="form">
+      <div class="f full"><span>정산기간 <b>*</b></span>
+        <div class="period"><input type="date" id="p1d" aria-label="정산기간 시작일"><input type="time" id="p1t" value="09:00" aria-label="시작 시각"><i>~</i><input type="date" id="p2d" aria-label="정산기간 종료일"><input type="time" id="p2t" value="18:00" aria-label="종료 시각"></div></div>
+      <div class="f full"><span>추가 정산기간</span>
+        <div class="period"><input type="date" id="p3d" aria-label="추가 정산기간 시작일"><input type="time" id="p3t" value="09:00" aria-label="시작 시각"><i>~</i><input type="date" id="p4d" aria-label="추가 정산기간 종료일"><input type="time" id="p4t" value="18:00" aria-label="종료 시각"></div></div>
+      <div class="f full"><span>반납기간</span>
+        <div class="period"><input type="date" id="p5d" aria-label="반납기간 시작일"><input type="time" id="p5t" value="09:00" aria-label="시작 시각"><i>~</i><input type="date" id="p6d" aria-label="반납기간 종료일"><input type="time" id="p6t" value="18:00" aria-label="종료 시각"></div></div>
+      <label class="f full"><span>등록 유의사항</span><textarea id="note" maxlength="2000" placeholder="학교에 안내할 내용 (선택)"></textarea></label>
+    </div>
+  </section>
+
+  <div class="copybar">
+    <span class="status" id="copyStatus" role="status">다 입력했으면 복사하기를 누르세요.</span>
+    <div class="row">
+      <button class="btn sub" id="resetBtn" type="button">새 사업 입력</button>
+      <button class="btn" id="copyBtn" type="button">복사하기</button>
+    </div>
+  </div>
+
+  <section aria-labelledby="h-use">
+    <h2 id="h-use">복사한 다음 정산시스템에서</h2>
+    <ol class="steps">
+      <li>정산시스템에서 목적사업비 <strong>등록 화면</strong>을 열어요.</li>
+      <li>엣지 즐겨찾기 줄의 <strong>목적사업비 자동입력</strong>을 눌러요. 오른쪽에 작은 창이 떠요.</li>
+      <li>복사한 내용이 바로 채워져요. 채워진 칸은 노랗게 보여요. 처음 한 번은 엣지가 <strong>클립보드 보기 허용</strong>을 물어보니 허용을 눌러 주세요. 안 채워지면 오른쪽 창에 <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+      <li>대상학교를 올리고 <strong>저장</strong>은 직접 눌러요.</li>
+    </ol>
+    <p class="muted">대상학교를 1개 이상 넣어야 저장돼요. 화면의 [대상학교 엑셀 업로드]를 쓰면 됩니다.</p>
+  </section>
+
+</div>
+
+<script>
+var DEPTS=["학교생활교육과 교육활동·행정지원","학교생활교육과 생활교육지원","초등교육지원과 기획운영","초등교육지원과 유아교육","중등교육지원과 기획운영","중등교육지원과 문화예술교육","학생맞춤협력과 학생맞춤지원","학생맞춤협력과 협력지원","학생맞춤협력과 다문화지원","행정지원과 총무","행정지원과 감사","행정지원과 학생배치","행정지원과 정보","재정지원과 재정관리","재정지원과 회계관리","학교통합지원과 통합지원1","학교통합지원과 통합지원2","학교통합지원과 통합지원3","평생교육건강과 평생/학원관리","평생교육건강과 보건급식","학교시설지원과 학교시설기획","학교시설지원과 학교시설개발","학교시설지원과 학교시설관리"];
+
+/* 즐겨찾기 버튼에 들어가는 코드. 정산시스템 화면에서 실행됩니다. */
+function mjFiller(cfg){
+  var PID='mj-fill-panel';
+  var ex=document.getElementById(PID);
+  if(ex){ex.parentNode.removeChild(ex);return;}
+  var f=document.forms['write_form'];
+  var KEY='mjFillRows',DKEY='mjFillDone';
+  function lsGet(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+  function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function norm(s){return String(s==null?'':s).replace(/\s+/g,'').toLowerCase();}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function parseTSV(t){
+    var rows=[],row=[],cell='',q=false,i,c;
+    t=String(t).replace(/\r\n?/g,'\n');
+    for(i=0;i<t.length;i++){
+      c=t.charAt(i);
+      if(q){if(c==='"'){if(t.charAt(i+1)==='"'){cell+='"';i++;}else{q=false;}}else{cell+=c;}}
+      else if(c==='"'&&cell===''){q=true;}
+      else if(c==='\t'){row.push(cell);cell='';}
+      else if(c==='\n'){row.push(cell);rows.push(row);row=[];cell='';}
+      else{cell+=c;}
+    }
+    if(cell!==''||row.length){row.push(cell);rows.push(row);}
+    return rows.filter(function(r){return r.length>3&&r.join('').trim()!=='';}).filter(function(r){return !/^(기준연도|[a-t]$)/.test(norm(r[0]))&&!/^예시/.test(String(r[0]).trim());});
+  }
+  var marked=[];
+  function clearMarks(){marked.forEach(function(e){e.style.backgroundColor='';e.style.outline='';});marked=[];}
+  function mark(e){if(!e)return;e.style.backgroundColor='#fff3cf';e.style.outline='2px solid #d99a00';marked.push(e);}
+  function trig(e){['input','change'].forEach(function(t){e.dispatchEvent(new Event(t,{bubbles:true}));});}
+  function val(v){return String(v==null?'':v).trim();}
+  function setText(name,v,w,label,max){
+    var e=f.elements[name];v=val(v);if(!e||v==='')return;
+    if(max&&v.length>max){w.push(label+': '+max+'자를 넘어서 잘랐어요');v=v.slice(0,max);}
+    e.value=v;trig(e);mark(e);
+  }
+  function findOpt(e,t){
+    var n=norm(t),i,o;if(!n)return null;
+    for(i=0;i<e.options.length;i++){o=e.options[i];if(norm(o.value)===n||norm(o.text)===n)return o;}
+    for(i=0;i<e.options.length;i++){o=e.options[i];if(o.value&&norm(o.text).indexOf(n)>-1)return o;}
+    return null;
+  }
+  function ox(v){var n=norm(v);if(/^(o|ㅇ|○|y|yes|예|가능|있음)$/.test(n))return 'Y';if(/^(x|×|n|no|아니오|불가능|불가|없음)$/.test(n))return 'N';return v;}
+  function setSel(name,v,w,label,mapper){
+    var e=f.elements[name];if(!e||val(v)==='')return;
+    var o=findOpt(e,mapper?mapper(val(v)):val(v));
+    if(!o){w.push(label+': "'+val(v)+'" 항목을 못 찾았어요');return;}
+    e.value=o.value;trig(e);mark(e);
+  }
+  function dt(s){
+    s=val(s);if(!s)return null;
+    var m=s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D+?(\d{1,2})\s*[:시]\s*(\d{1,2})?)?/);
+    if(!m)return false;
+    var h=m[4]?+m[4]:0,mi=m[5]?+m[5]:0;
+    if(/오후|pm/i.test(s)&&h<12)h+=12;
+    function p(x){return ('0'+x).slice(-2);}
+    return {d:m[1]+'-'+p(m[2])+'-'+p(m[3]),h:h,mi:mi};
+  }
+  function setPeriod(d,t,mm,s,w,label){
+    var r=dt(s);if(r===null)return;
+    if(r===false){w.push(label+': 날짜를 못 읽었어요 ('+val(s)+')');return;}
+    var a=f.elements[d],b=f.elements[t],c=f.elements[mm];
+    a.value=r.d;b.value=r.h;c.value=r.mi;
+    [a,b,c].forEach(function(e){trig(e);mark(e);});
+  }
+  function fill(row){
+    var w=[];clearMarks();
+    setSel('stdYear',row[0],w,'기준연도');
+    setText('dtlProjNm',row[1],w,'세부사업명',50);
+    setText('dtlDtlProjNm',row[2],w,'세세부사업명',50);
+    setText('schlInfoProjNm',row[3],w,'학교안내사업명',150);
+    setSel('source',row[4],w,'재원');
+    setText('sourceEtc',row[5],w,'재원 기타',0);
+    setSel('poYn',row[6],w,'공모여부',ox);
+    setSel('resRptGtrYn',row[7],w,'결과보고서 취합여부',ox);
+    setSel('rtnSt',row[8],w,'반납여부');
+    setSel('coProjYn',row[9],w,'명시이월 가능여부',ox);
+    setPeriod('firstRptStrDtm','firstRptStrT','firstRptStrM',row[10],w,'정산기간 시작');
+    setPeriod('firstRptEndDtm','firstRptEndT','firstRptEndM',row[11],w,'정산기간 종료');
+    setPeriod('secondRptStrDtm','secondRptStrT','secondRptStrM',row[12],w,'추가 정산기간 시작');
+    setPeriod('secondRptEndDtm','secondRptEndT','secondRptEndM',row[13],w,'추가 정산기간 종료');
+    setPeriod('returnStrDtm','returnStrT','returnStrM',row[14],w,'반납기간 시작');
+    setPeriod('returnEndDtm','returnEndT','returnEndM',row[15],w,'반납기간 종료');
+    try{if(window.initDatePicker)window.initDatePicker();}catch(e){}
+    setText('note',row[16],w,'등록 유의사항',2000);
+    var dv=val(row[17])||cfg.dept;
+    if(dv){
+      var de=f.elements['projDept'],o=de?findOpt(de,dv):null;
+      if(!o){w.push('사업부서: "'+dv+'" 항목을 못 찾았어요');}
+      else{
+        if(window.jQuery){window.jQuery(de).val(o.value).trigger('change');}else{de.value=o.value;trig(de);}
+        var sc=de.nextElementSibling&&de.nextElementSibling.querySelector('.select2-selection');mark(sc||de);
+      }
+    }
+    setText('projMngNm',val(row[18])||cfg.mng,w,'사업담당자',50);
+    var tel=val(row[19])||cfg.tel||'';
+    if(/^010/.test(tel.replace(/\D/g,'')))w.push('사무실번호: 010 번호는 시스템이 저장을 막아요');
+    setText('projMngTel',tel,w,'사무실번호',20);
+    return w;
+  }
+
+  var p=document.createElement('div');p.id=PID;
+  p.innerHTML='<style>#'+PID+'{position:fixed;top:72px;right:16px;width:340px;max-height:calc(100vh - 96px);display:flex;flex-direction:column;background:#fff;color:#1d2622;border:1px solid #c9d4cf;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:2147483000;font:13px/1.5 "Malgun Gothic",sans-serif;text-align:left}'
+   +'#'+PID+' .h{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0f6b5c;color:#fff;border-radius:10px 10px 0 0;font-weight:700}'
+   +'#'+PID+' .h button{background:none;border:0;color:#fff;font-size:18px;cursor:pointer;line-height:1}'
+   +'#'+PID+' .b{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:8px}'
+   +'#'+PID+' textarea{width:100%;height:80px;box-sizing:border-box;border:2px dashed #0f6b5c;border-radius:8px;padding:8px;font:14px "Malgun Gothic",sans-serif;background:#f5faf8}'
+   +'#'+PID+' .lnk{background:none;border:0;color:#0f6b5c;cursor:pointer;padding:0;text-decoration:underline;font-size:12px}'
+   +'#'+PID+' .it{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:#f5f7f6;border:1px solid #dbe2df;border-radius:6px;padding:7px 9px;cursor:pointer;font:inherit;color:inherit}'
+   +'#'+PID+' .it:hover{border-color:#0f6b5c}#'+PID+' .it.on{background:#fff3cf;border-color:#d99a00}'
+   +'#'+PID+' .it .n{color:#0f6b5c;font-weight:700;min-width:22px}#'+PID+' .it .ok{margin-left:auto;color:#0f6b5c;font-weight:700}'
+   +'#'+PID+' .msg{padding:8px 10px;border-radius:6px;background:#e3f1ee}#'+PID+' .msg.warn{background:#fdecea;color:#8a2a17}'
+   +'#'+PID+' ul{margin:4px 0 0;padding-left:18px}</style>'
+   +'<div class="h"><span>목적사업비 자동입력</span><button type="button" data-a="close" title="닫기">×</button></div><div class="b"></div>';
+  document.body.appendChild(p);
+  var body=p.querySelector('.b'),cur=-1,msg='',warn=[],showPaste=false;
+
+  function handle(text){
+    var rows=parseTSV(text);
+    if(!rows.length){msg='';warn=['붙여넣은 내용을 읽지 못했어요. 자동입력 페이지에서 [복사하기]를 다시 눌러 주세요.'];render();return;}
+    if(rows.length===1){
+      warn=fill(rows[0]);lsSet(KEY,[]);lsSet(DKEY,{});lsSet('mjFillLast',rows[0]);showPaste=false;
+      msg='<b>입력 완료.</b> 노란 칸을 확인하고, 대상학교를 올린 뒤 저장을 누르세요.';render();return;
+    }
+    lsSet(KEY,rows);lsSet(DKEY,{});showPaste=false;cur=-1;warn=[];
+    msg=rows.length+'건을 불러왔어요. 채울 사업을 누르세요.';render();
+  }
+  function render(){
+    var rows=lsGet(KEY,[]),done=lsGet(DKEY,{}),h='';
+    if(!f){body.innerHTML='<div class="msg warn">목적사업비 <b>등록 화면</b>을 열고 다시 눌러 주세요.</div>';return;}
+    if(msg)h+='<div class="msg">'+msg+'</div>';
+    if(warn.length)h+='<div class="msg warn">확인 필요<ul>'+warn.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+    if(!rows.length||showPaste){
+      h+='<textarea data-a="ta" placeholder="여기를 누르고 Ctrl+V"></textarea>'
+        +(rows.length?'<button class="lnk" type="button" data-a="cancel">목록으로 돌아가기</button>':'');
+    }else{
+      var n=0;for(var k in done)n++;
+      h+='<div style="display:flex;justify-content:space-between;align-items:center"><span>'+rows.length+'건 중 '+n+'건 입력함</span><button class="lnk" type="button" data-a="paste">새로 붙여넣기</button></div>';
+      rows.forEach(function(r,i){
+        h+='<button type="button" class="it'+(i===cur?' on':'')+'" data-i="'+i+'"><span class="n">'+(i+1)+'</span><span>'+esc(r[1]||'(세부사업명 없음)')+'<br><span style="color:#5d6b65">'+esc(r[2]||'')+'</span></span>'+(done[i]?'<span class="ok">✓</span>':'')+'</button>';
+      });
+    }
+    body.innerHTML=h;
+    var ta=body.querySelector('textarea');
+    if(ta){
+      ta.addEventListener('paste',function(ev){
+        var t=ev.clipboardData&&ev.clipboardData.getData('text');
+        if(t){ev.preventDefault();handle(t);}else{setTimeout(function(){handle(ta.value);},0);}
+      });
+      ta.focus();
+    }
+  }
+  p.addEventListener('click',function(ev){
+    var t=ev.target.closest('[data-a],[data-i]');if(!t)return;
+    var a=t.getAttribute('data-a');
+    if(a==='close'){clearMarks();p.parentNode.removeChild(p);return;}
+    if(a==='paste'){showPaste=true;msg='';warn=[];render();return;}
+    if(a==='cancel'){showPaste=false;render();return;}
+    var i=t.getAttribute('data-i');
+    if(i!==null){
+      i=+i;var rows=lsGet(KEY,[]),done=lsGet(DKEY,{});
+      warn=fill(rows[i]);cur=i;done[i]=1;lsSet(DKEY,done);
+      msg='<b>'+(i+1)+'번</b>을 채웠어요. 노란 칸 확인 → 대상학교 업로드 → 저장.';
+      render();
+    }
+  });
+  function useLast(){
+    var last=lsGet('mjFillLast',null);
+    if(last){warn=fill(last);msg='<b>지난번 내용으로 채웠어요.</b> 내용이 바뀌었으면 아래 칸에 Ctrl+V';}
+    render();
+  }
+  function readClip(tries){
+    if(!navigator.clipboard||!navigator.clipboard.readText){useLast();return;}
+    navigator.clipboard.readText().then(function(t){
+      if(parseTSV(t).length===1){handle(t);}else{useLast();}
+    },function(){
+      if(tries>0){try{window.focus();}catch(e){}setTimeout(function(){readClip(tries-1);},250);}else{useLast();}
+    });
+  }
+  if(f&&!lsGet(KEY,[]).length){body.innerHTML='<div class="msg">복사한 내용을 읽는 중…</div>';readClip(1);}else{render();}
+}
+
+var $=function(id){return document.getElementById(id);};
+$("projDept").innerHTML='<option value="">사업부서를 선택하세요</option>'+DEPTS.map(function(d){return '<option>'+d+'</option>';}).join("");
+
+var KEEP=["projDept","projMngNm","projMngTel"];
+try{var saved=JSON.parse(localStorage.getItem("mjPerson")||"null");if(saved)KEEP.forEach(function(k){if(saved[k])$(k).value=saved[k];});}catch(e){}
+function savePerson(){var o={};KEEP.forEach(function(k){o[k]=$(k).value;});try{localStorage.setItem("mjPerson",JSON.stringify(o));}catch(e){}}
+KEEP.forEach(function(k){$(k).addEventListener("change",savePerson);$(k).addEventListener("input",savePerson);});
+
+function toggleEtc(){$("sourceEtcWrap").hidden=$("source").value!=="기타";}
+$("source").addEventListener("change",toggleEtc);toggleEtc();
+
+function per(d,t){var dv=$(d).value;return dv?dv+" "+($(t).value||"00:00"):"";}
+function clean(s){return String(s).replace(/\t/g," ");}
+function quoteCell(s){s=clean(s);return /[\n"]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+
+function collect(){
+  var need=[["dtlProjNm","세부사업명"],["dtlDtlProjNm","세세부사업명"],["schlInfoProjNm","학교안내사업명"],["projDept","사업부서"],["projMngNm","사업담당자"],["projMngTel","사무실번호"],["p1d","정산기간 시작일"],["p2d","정산기간 종료일"]];
+  if($("source").value==="기타")need.push(["sourceEtc","재원 기타 내용"]);
+  document.querySelectorAll(".bad").forEach(function(e){e.classList.remove("bad");});
+  var miss=need.filter(function(n){return !$(n[0]).value.trim();});
+
+  var note=miss.length?" (빈칸 "+miss.length+"개는 정산시스템에서 직접 입력)":"";
+  var row=[$("stdYear").value,$("dtlProjNm").value,$("dtlDtlProjNm").value,$("schlInfoProjNm").value,$("source").value,$("source").value==="기타"?$("sourceEtc").value:"",
+    $("poYn").value,$("resRptGtrYn").value,$("rtnSt").value,$("coProjYn").value,
+    per("p1d","p1t"),per("p2d","p2t"),per("p3d","p3t"),per("p4d","p4t"),per("p5d","p5t"),per("p6d","p6t"),
+    $("note").value,$("projDept").value,$("projMngNm").value,$("projMngTel").value];
+  return {text:row.map(quoteCell).join("\t"),note:note};
+}
+function setStatus(el,txt,cls){el.textContent=txt;el.className="status "+(cls||"");}
+function copyText(text,ok,fail){
+  try{navigator.clipboard.writeText(text).then(ok,fail);}catch(e){fail();}
+}
+function fallbackCopy(text){
+  var ta=document.createElement("textarea");ta.value=text;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();
+  var ok=false;try{ok=document.execCommand("copy");}catch(e){}
+  document.body.removeChild(ta);return ok;
+}
+$("copyBtn").addEventListener("click",function(){
+  var r=collect(),s=$("copyStatus");
+  if(r.err){setStatus(s,r.err,"err");return;}
+  var okMsg="복사했어요. 정산시스템 등록 화면에서 버튼만 누르세요"+r.note;
+  copyText(r.text,function(){setStatus(s,okMsg,"ok");},function(){
+    if(fallbackCopy(r.text))setStatus(s,okMsg,"ok");
+    else setStatus(s,"복사가 막혔어요. 다시 한 번 눌러 주세요.","err");
+  });
+});
+$("resetBtn").addEventListener("click",function(){
+  ["dtlProjNm","dtlDtlProjNm","schlInfoProjNm","sourceEtc","note","p1d","p2d","p3d","p4d","p5d","p6d"].forEach(function(k){$(k).value="";});
+  document.querySelectorAll(".bad").forEach(function(e){e.classList.remove("bad");});
+  setStatus($("copyStatus"),"담당자 정보는 그대로 두고 나머지를 비웠어요.","ok");
+  $("dtlProjNm").focus();
+});
+
+var code="javascript:"+encodeURIComponent("("+mjFiller.toString()+")({})");
+$("code").value=code;$("dragLink").setAttribute("href",code);
+$("dragLink").addEventListener("click",function(e){e.preventDefault();setStatus($("codeStatus"),"누르지 말고 즐겨찾기 줄로 끌어다 놓아 주세요.","err");});
+$("codeBtn").addEventListener("click",function(){
+  var s=$("codeStatus");
+  copyText(code,function(){setStatus(s,"복사했어요.","ok");},function(){if(fallbackCopy(code))setStatus(s,"복사했어요.","ok");else{$("code").select();setStatus(s,"코드를 선택해 뒀어요. Ctrl+C","ok");}});
+});
+</script>
+</body>
+</html>
