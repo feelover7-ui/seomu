@@ -279,12 +279,15 @@ function mjFiller(cfg){
     if(!rows.length){msg='';warn=['붙여넣은 내용을 읽지 못했어요. 자동입력 페이지에서 [복사하기]를 다시 눌러 주세요.'];render();return;}
     if(rows.length===1){
       warn=fill(rows[0]);lsSet(KEY,[]);lsSet(DKEY,{});lsSet('mjFillLast',rows[0]);showPaste=false;
+      if(!warn.length){closeQuiet();return;}
       msg='<b>입력 완료.</b> 노란 칸을 확인하고, 대상학교를 올린 뒤 저장을 누르세요.';render();return;
     }
     lsSet(KEY,rows);lsSet(DKEY,{});showPaste=false;cur=-1;warn=[];
     msg=rows.length+'건을 불러왔어요. 채울 사업을 누르세요.';render();
   }
+  function closeQuiet(){if(p.parentNode)p.parentNode.removeChild(p);}
   function render(){
+    p.style.display='';
     var rows=lsGet(KEY,[]),done=lsGet(DKEY,{}),h='';
     if(!f){body.innerHTML='<div class="msg warn">목적사업비 <b>등록 화면</b>을 열고 다시 눌러 주세요.</div>';return;}
     if(msg)h+='<div class="msg">'+msg+'</div>';
@@ -325,7 +328,7 @@ function mjFiller(cfg){
   });
   function useLast(){
     var last=lsGet('mjFillLast',null);
-    if(last){warn=fill(last);msg='<b>지난번 내용으로 채웠어요.</b> 내용이 바뀌었으면 아래 칸에 Ctrl+V';}
+    if(last){warn=fill(last);if(!warn.length){closeQuiet();return;}msg='<b>지난번 내용으로 채웠어요.</b> 내용이 바뀌었으면 아래 칸에 Ctrl+V';}
     render();
   }
   function readClip(tries){
@@ -336,7 +339,7 @@ function mjFiller(cfg){
       if(tries>0){try{window.focus();}catch(e){}setTimeout(function(){readClip(tries-1);},250);}else{useLast();}
     });
   }
-  if(f&&!lsGet(KEY,[]).length){body.innerHTML='<div class="msg">복사한 내용을 읽는 중…</div>';readClip(1);}else{render();}
+  if(f&&!lsGet(KEY,[]).length){p.style.display='none';readClip(1);}else{render();}
 }
 
 var $=function(id){return document.getElementById(id);};
